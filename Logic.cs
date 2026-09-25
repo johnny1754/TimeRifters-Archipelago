@@ -8,6 +8,7 @@ namespace TimeRiftersArchipelago
         public const int ArenaCount = 15;
         public const int MilestonesPerArena = 4;
         public const int LocationCount = ArenaCount * MilestonesPerArena;
+        public const int WeaponItemCount = 5;
         public const int HighCheckMask = 0; // All 60 locations fit in the low mask.
         private const decimal ULongRange = 18446744073709551616m; // 2^64
 
@@ -57,15 +58,16 @@ namespace TimeRiftersArchipelago
         }
 
         public static bool ParseSnapshot(string[] lines, long now, out string key, out int items,
-            out ulong checksLow, out int checksHigh)
+            out int echoes, out ulong checksLow, out int checksHigh)
         {
-            key = null; items = 0; checksLow = 0; checksHigh = 0;
+            key = null; items = 0; echoes = 0; checksLow = 0; checksHigh = 0;
             long timestamp; decimal allChecks;
-            if (lines.Length != 5 || lines[0] != "3" || !ValidSession(lines[1])
+            if (lines.Length != 6 || lines[0] != "4" || !ValidSession(lines[1])
                 || !Int64.TryParse(lines[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out timestamp)
                 || timestamp > now + 2 || now - timestamp > 10
                 || !Int32.TryParse(lines[3], out items) || items < 0 || items > 31
-                || !Decimal.TryParse(lines[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out allChecks)
+                || !Int32.TryParse(lines[4], out echoes) || echoes < 0 || echoes > LocationCount
+                || !Decimal.TryParse(lines[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out allChecks)
                 || allChecks < 0 || allChecks >= ULongRange * 16m) return false;
             checksLow = (ulong)(allChecks % ULongRange);
             checksHigh = (int)(allChecks / ULongRange);
