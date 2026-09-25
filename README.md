@@ -2,50 +2,51 @@
 
 A work-in-progress Archipelago integration for the Steam game **Time Rifters**.
 
-## Current prototype
+## Download
 
-* 15 playable arenas
-* 60 Archipelago checks total
-* Each arena sends checks at **25%, 50%, 75%, and 100%** destruction
-* Checks send immediately when the milestone is reached
-* Pistol is available from the start
-* Flak, Lightning, Alien Disk, Rocket Launcher, and Rifle are randomized Archipelago items
-* Reconnect-safe local progress tracking
-* Enable the mod at the title screen with **Home** or **F8**
+Get the newest test build from the [Releases page](../../releases).
 
-## Requirements
+The release includes:
 
-* A legal copy of Time Rifters for Windows
-* BepInEx 5.4.23.2 **Windows x86** installed beside `TimeRifters.exe`
-* Archipelago Launcher
-* The Time Rifters `.apworld` and game plugin from a compatible release
+- `TimeRiftersArchipelago.dll` — the BepInEx mod
+- `timerifters.apworld` — installs Time Rifters in Archipelago Launcher
+- `Time-Rifters.yaml` — example player file
+- A ZIP containing everything above
 
-This project does not include Time Rifters game files.
+## Current features
+
+- 15 campaign arenas
+- Arena progress checks at 25%, 50%, 75%, and 100%
+- Episode completion checks
+- Optional hidden platforming escape checks, including the Title Screen escape
+- Randomized weapon unlocks: Flak Cannon, Plasma Beam, Particle Ball, Rocket Launcher, and Spread Rifle
+- Reusable Time Echo upgrade credits
+- In-game overlay showing weapon status and check totals
+- Escape checks can be enabled or disabled in the YAML
 
 ## Installation
 
-1. Install the compatible `timerifters_prototype.apworld` by double-clicking it.
+### 1. Install BepInEx
 
-2. Copy `TimeRiftersAPPrototype.dll` into:
+1. Download **BepInEx 5.4.23.2 — Windows x86** from the [BepInEx releases page](https://github.com/BepInEx/BepInEx/releases).
+2. Open your Time Rifters Steam folder:
+   - Steam Library → right-click **Time Rifters** → **Manage** → **Browse local files**
+3. Extract the BepInEx ZIP directly into that folder—the same folder containing `TimeRifters.exe`.
+4. Start Time Rifters once, then close it. This creates the `BepInEx` folder.
+
+### 2. Install Time Rifters Archipelago
+
+1. Copy `TimeRiftersArchipelago.dll` into:
 
    `TimeRifters\BepInEx\plugins\`
 
-3. Start Archipelago Launcher and generate or join a room containing Time Rifters.
+2. Double-click `timerifters.apworld`, then restart Archipelago Launcher.
+3. Open `Time-Rifters.yaml` and change `name: Time` to your player name.
+4. Generate a room, start **Time Rifters Client**, and connect.
+5. Start Time Rifters and press **Home** or **F8** at the title screen.
 
-4. Start the Time Rifters Prototype Client and connect to the room.
+## YAML option
 
-5. Launch Time Rifters.
-
-6. At the title screen, press **Home** or **F8** to enable the Archipelago mod.
-
-A fresh seed is required when the world’s location count changes.
-
-## Source files
-
-* `Plugin.cs` — Time Rifters BepInEx plugin and in-game integration
-* `Logic.cs` — milestone, weapon, and progress logic
-* `build.sh` — build helper script
-
-## Status
-
-This is an active development prototype. The 60-check version has been tested with cross-game item sending and reconnecting, but it is not yet a finished, official Archipelago world.
+```yaml
+Time Rifters:
+  escape_checks: true
