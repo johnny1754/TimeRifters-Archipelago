@@ -8,16 +8,30 @@ from worlds.LauncherComponents import Component, Type, components, launch_subpro
 GAME = "Time Rifters"
 ITEM_BASE, LOCATION_BASE = 9473100, 9473200
 ARENAS = ("Greeble Box", "Arena Boss", "Long Bridge", "Holodeck", "Tram", "Cave", "Channel", "Long Caves", "Egypt Holodeck", "Wide Printer", "Donut Printer", "Water", "Tree", "Jungle Holodeck", "Cylinder")
-MILESTONES = (25, 50, 75, 100)
 EPISODES = ("Episode 1", "Episode 2", "Episode 3")
 ITEMS = {"Flak Cannon": ITEM_BASE, "Plasma Beam": ITEM_BASE + 1, "Particle Ball": ITEM_BASE + 2,
          "Rocket Launcher": ITEM_BASE + 3, "Spread Rifle": ITEM_BASE + 4, "Time Echo": ITEM_BASE + 5,
          "Episode 2 Key": ITEM_BASE + 6, "Episode 3 Key": ITEM_BASE + 7}
-CORE_LOCATIONS = {arena + " - " + str(percent) + "% Clear": LOCATION_BASE + index * 4 + milestone for index, arena in enumerate(ARENAS) for milestone, percent in enumerate(MILESTONES)}
-CORE_LOCATIONS.update({episode + " Complete": LOCATION_BASE + len(ARENAS) * len(MILESTONES) + index for index, episode in enumerate(EPISODES)})
-ESCAPE_LOCATIONS = {arena + " - Hidden Escape": LOCATION_BASE + 63 + index for index, arena in enumerate(ARENAS)}
-ESCAPE_LOCATIONS["Title Screen - Hidden Escape"] = LOCATION_BASE + 78
-LOCATIONS = dict(CORE_LOCATIONS)
+def milestones_for(count):
+    return tuple((100 * (index + 1) + count - 1) // count for index in range(count))
+
+
+def location_tables(count):
+    milestones = milestones_for(count)
+    core = {arena + " - " + str(percent) + "% Clear": LOCATION_BASE + index * 101 + percent
+            for index, arena in enumerate(ARENAS) for milestone, percent in enumerate(milestones)}
+    core.update({episode + " Complete": LOCATION_BASE + len(ARENAS) * 101 + index for index, episode in enumerate(EPISODES)})
+    escapes = {arena + " - Hidden Escape": LOCATION_BASE + len(ARENAS) * 101 + len(EPISODES) + index
+               for index, arena in enumerate(ARENAS)}
+    escapes["Title Screen - Hidden Escape"] = LOCATION_BASE + len(ARENAS) * 101 + len(EPISODES) + len(ARENAS)
+    return milestones, core, escapes
+
+
+MILESTONES, CORE_LOCATIONS, ESCAPE_LOCATIONS = location_tables(4)
+ALL_PERCENTS = tuple(sorted({percent for count in range(4, 21) for percent in milestones_for(count)}))
+LOCATIONS = {arena + " - " + str(percent) + "% Clear": LOCATION_BASE + index * 101 + percent
+             for index, arena in enumerate(ARENAS) for percent in ALL_PERCENTS}
+LOCATIONS.update({episode + " Complete": LOCATION_BASE + len(ARENAS) * 101 + index for index, episode in enumerate(EPISODES)})
 LOCATIONS.update(ESCAPE_LOCATIONS)
 
 
@@ -37,6 +51,14 @@ class ArenaShuffle(Toggle):
     """Shuffle all 15 arenas between episode groups; Episode 1 always has five playable arenas."""
     display_name = "Shuffle arenas between episodes"
     default = 0
+
+
+class ArenaPercentageChecks(Range):
+    """Checks per arena, evenly spaced through 100%. Higher values add checks and room for Time Echoes."""
+    display_name = "Arena percentage checks"
+    range_start = 4
+    range_end = 20
+    default = 4
 
 
 class RequiredTimeEchoes(Range):
@@ -71,15 +93,25 @@ class DeathLinkPercent(Range):
     default = 50
 
 
+class DeathLinkDuration(Range):
+    """Seconds that firing is disabled after receiving a DeathLink."""
+    display_name = "DeathLink firing-lock duration"
+    range_start = 30
+    range_end = 120
+    default = 60
+
+
 @dataclass
 class TimeRiftersOptions(PerGameCommonOptions):
     escape_checks: EscapeChecks
     episode_keys: EpisodeKeys
     arena_shuffle: ArenaShuffle
+    arena_percentage_checks: ArenaPercentageChecks
     required_time_echoes: RequiredTimeEchoes
     goal: Goal
     death_link: DeathLink
     death_link_percent: DeathLinkPercent
+    death_link_duration: DeathLinkDuration
 
 
 def launch_client(*args):
@@ -105,7 +137,10 @@ class TimeRiftersWorld(World):
     location_name_to_id = LOCATIONS
 
     def generate_early(self):
-        location_count = len(CORE_LOCATIONS) + (len(ESCAPE_LOCATIONS) if self.options.escape_checks.value else 0)
+        self.milestone_count = self.options.arena_percentage_checks.value
+        self.milestones, self.core_locations, self.escape_locations = location_tables(self.milestone_count)
+        self.location_name_to_id = {**self.core_locations, **self.escape_locations}
+        location_count = len(self.core_locations) + (len(self.escape_locations) if self.options.escape_checks.value else 0)
         non_echo_items = 7 if self.options.episode_keys.value else 5
         maximum_echoes = location_count - non_echo_items
         requested_echoes = self.options.required_time_echoes.value
@@ -140,19 +175,19 @@ class TimeRiftersWorld(World):
         for slot, arena_index in enumerate(self.arena_order):
             region = episode_regions[slot // 5]
             arena = ARENAS[arena_index]
-            for milestone in MILESTONES:
+            for milestone in self.milestones:
                 name = arena + " - " + str(milestone) + "% Clear"
-                region.locations.append(RiftersLocation(self.player, name, CORE_LOCATIONS[name], region))
+                region.locations.append(RiftersLocation(self.player, name, self.core_locations[name], region))
             if self.options.escape_checks.value:
                 name = arena + " - Hidden Escape"
-                region.locations.append(RiftersLocation(self.player, name, ESCAPE_LOCATIONS[name], region))
+                region.locations.append(RiftersLocation(self.player, name, self.escape_locations[name], region))
         for index, episode in enumerate(EPISODES):
             name = episode + " Complete"
             region = episode_regions[index]
-            region.locations.append(RiftersLocation(self.player, name, CORE_LOCATIONS[name], region))
+            region.locations.append(RiftersLocation(self.player, name, self.core_locations[name], region))
         if self.options.escape_checks.value:
             episode_regions[0].locations.append(RiftersLocation(self.player, "Title Screen - Hidden Escape",
-                                                                 LOCATION_BASE + 78, episode_regions[0]))
+                                                                 self.escape_locations["Title Screen - Hidden Escape"], episode_regions[0]))
         victory = RiftersLocation(self.player, "Time Rifters Goal", None, menu)
         required = ("Flak Cannon", "Plasma Beam", "Particle Ball", "Rocket Launcher", "Spread Rifle")
         if self.options.episode_keys.value:
@@ -172,7 +207,7 @@ class TimeRiftersWorld(World):
         self.multiworld.itempool += [self.create_item(name) for name in tuple(ITEMS)[:5]]
         if self.options.episode_keys.value:
             self.multiworld.itempool += [self.create_item("Episode 2 Key"), self.create_item("Episode 3 Key")]
-        location_count = len(CORE_LOCATIONS) + (len(ESCAPE_LOCATIONS) if self.options.escape_checks.value else 0)
+        location_count = len(self.core_locations) + (len(self.escape_locations) if self.options.escape_checks.value else 0)
         progression_count = 7 if self.options.episode_keys.value else 5
         echo_count = location_count - progression_count
         required_echoes = self.options.required_time_echoes.value
@@ -184,11 +219,13 @@ class TimeRiftersWorld(World):
 
     def fill_slot_data(self):
         enabled = bool(self.options.escape_checks.value)
-        return {"protocol": 14, "feature_set": "death_link_percent", "item_base": ITEM_BASE,
-                "location_base": LOCATION_BASE, "location_count": len(CORE_LOCATIONS) + (len(ESCAPE_LOCATIONS) if enabled else 0),
+        return {"protocol": 17, "feature_set": "death_link_duration", "item_base": ITEM_BASE,
+                "location_base": LOCATION_BASE, "location_count": len(self.core_locations) + (len(self.escape_locations) if enabled else 0),
                 "escape_checks": enabled, "episode_keys": bool(self.options.episode_keys.value),
                 "arena_shuffle": bool(self.options.arena_shuffle.value), "arena_order": self.arena_order,
                 "required_time_echoes": self.options.required_time_echoes.value,
                 "goal": self.options.goal.value,
                 "death_link": bool(self.options.death_link.value),
-                "death_link_percent": self.options.death_link_percent.value}
+                "death_link_percent": self.options.death_link_percent.value,
+                "death_link_duration": self.options.death_link_duration.value,
+                "arena_percentage_checks": self.milestone_count}

@@ -69,7 +69,7 @@ The included default is a tested standard setup: 99% average goal, 50 required T
 
 * Pistol is available from the start.
 * Flak Cannon, Plasma Beam, Particle Ball, Rocket Launcher, and Spread Rifle are randomized progression items.
-* Every arena has checks at **25%, 50%, 75%, and 100%** destruction, plus episode completion checks.
+* Every arena has evenly spaced destruction checks, plus episode completion checks. The default four checks are **25%, 50%, 75%, and 100%**.
 * Time Echoes are reusable shop-upgrade credits for every new episode or replay.
 * Arena Boss always remains Episode 3 Arena 5 when arena shuffle is enabled.
 
@@ -80,21 +80,25 @@ Time Rifters:
   escape_checks: true
   episode_keys: true
   arena_shuffle: false
+  arena_percentage_checks: 4
   required_time_echoes: 50
   goal: 99_percent
   death_link: false
   death_link_percent: 50
+  death_link_duration: 60
 ```
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `escape_checks` | `true` | Adds 15 arena escapes and the title-screen escape: 79 checks total instead of 63. |
+| `escape_checks` | `true` | Adds 15 arena escapes and the title-screen escape: 16 bonus checks. |
 | `episode_keys` | `true` | Requires the randomized Episode 2 and Episode 3 Keys before those episodes can start. |
 | `arena_shuffle` | `false` | Shuffles the other 14 arenas between episode groups; Arena Boss stays Episode 3 Arena 5. |
-| `required_time_echoes` | `50` | Progression Time Echo count. Slider range: 25–84. Higher values may need escape checks or future denser check settings. |
+| `arena_percentage_checks` | `4` | Checks per arena. Slider range: 4–20, spaced evenly through 100%. Four is 25/50/75/100; ten is 10/20/…/100. Higher values add checks and room for Time Echoes. |
+| `required_time_echoes` | `50` | Progression Time Echo count. Slider range: 25–84. Enable escape checks or raise arena percentage checks if the seed needs more locations. |
 | `goal` | `99_percent` | `95_percent`, `99_percent`, and `100_percent` use the average best destruction across all 15 arenas. `final_boss_100_percent` requires Arena Boss at 100%. |
 | `death_link` | `false` | Enables DeathLink participation. |
-| `death_link_percent` | `50` | With DeathLink enabled, completing an arena below this value sends a DeathLink. Slider range: 1–100. A received link disables firing for one minute during an active arena. |
+| `death_link_percent` | `50` | With DeathLink enabled, completing an arena below this value sends a DeathLink. Slider range: 1–100. |
+| `death_link_duration` | `60` | Firing-lock duration after receiving a DeathLink. Slider range: 30–120 seconds. |
 
 ## Updating an existing install
 
@@ -104,7 +108,7 @@ When a release changes the bridge protocol, update **both** files, then make a n
 2. Replace `TimeRiftersArchipelago.dll` in `BepInEx\plugins`.
 3. Generate a fresh seed with the new YAML/APWorld.
 
-Do not mix a DLL, APWorld, and seed from different protocol versions.
+Do not mix a DLL, APWorld, and seed from different protocol versions. The current build uses stable percentage location IDs, so the tracker and hints show the correct percentage names at every check-density setting.
 
 ## Troubleshooting
 
@@ -138,4 +142,12 @@ The source package intentionally excludes Time Rifters. The release includes the
 
 ## Status
 
-This project is actively tested but not yet a 1.0 release. Report reproducible issues with your Time Rifters version, Archipelago version, selected YAML options, and `BepInEx\LogOutput.log`.
+## 1.0.0 release highlights
+
+* Complete ready-to-copy BepInEx setup, with the Unity 4 compatibility configuration already included.
+* Configurable 4–20 arena percentage checks with correctly named tracker and hint locations.
+* Optional episode keys, hidden escape checks, arena shuffle, destruction goals, and DeathLink.
+* Time Echo upgrade credits are replay-safe and reset for each new episode or replay.
+* The title-screen overlay shows arena order and each arena's best destruction percentage.
+
+Report reproducible issues with your Time Rifters version, Archipelago version, selected YAML options, and `BepInEx\LogOutput.log`.

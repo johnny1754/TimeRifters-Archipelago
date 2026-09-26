@@ -8,10 +8,6 @@ import time
 ITEM_BASE = 9473100
 TIME_ECHO_ID = ITEM_BASE + 5
 LOCATION_BASE = 9473200
-LOCATION_COUNT = 79
-CORE_LOCATION_COUNT = 63
-CORE_CHECK_MASK = (1 << CORE_LOCATION_COUNT) - 1
-CHECK_MASK = (1 << LOCATION_COUNT) - 1
 
 
 def default_directory():
@@ -22,8 +18,20 @@ def session_key(seed, team, slot):
     return hashlib.sha256(json.dumps([seed, team, slot], separators=(",", ":")).encode()).hexdigest()
 
 
-def mask_for_locations(locations, location_count):
-    return sum(1 << i for i in range(location_count) if LOCATION_BASE + i in locations)
+def location_ids(milestone_count, escape_checks):
+    percentages = [(100 * (index + 1) + milestone_count - 1) // milestone_count
+                   for index in range(milestone_count)]
+    values = [LOCATION_BASE + arena * 101 + percent for arena in range(15) for percent in percentages]
+    values += [LOCATION_BASE + 15 * 101 + episode for episode in range(3)]
+    if escape_checks:
+        values += [LOCATION_BASE + 15 * 101 + 3 + arena for arena in range(15)]
+        values += [LOCATION_BASE + 15 * 101 + 18]
+    return values
+
+
+def relative_locations(locations, ids):
+    lookup = {location: index for index, location in enumerate(ids)}
+    return {lookup[location] for location in locations if location in lookup}
 
 
 def item_state(items):
@@ -36,35 +44,35 @@ def item_state(items):
 
 
 def write_snapshot(folder, session, weapons, echoes, checks, escape_checks, episode_keys, arena_shuffle, arena_order,
-                   required_echoes, goal, death_link, death_link_percent):
+                   required_echoes, goal, death_link, death_link_percent, death_link_duration, milestone_count, location_count):
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / "server.txt"
     temp = folder / "server.txt.tmp"
     order = ",".join(str(value) for value in arena_order)
-    temp.write_text(f"14\n{session}\n{int(time.time())}\n{weapons}\n{echoes}\n{checks}\n{1 if escape_checks else 0}\n{1 if episode_keys else 0}\n{1 if arena_shuffle else 0}\n{order}\n{required_echoes}\n{goal}\n{1 if death_link else 0}\n{death_link_percent}\n", encoding="ascii")
+    check_text = ",".join(str(value) for value in sorted(checks))
+    temp.write_text(f"17\n{session}\n{int(time.time())}\n{weapons}\n{echoes}\n{check_text}\n{1 if escape_checks else 0}\n{1 if episode_keys else 0}\n{1 if arena_shuffle else 0}\n{order}\n{required_echoes}\n{goal}\n{1 if death_link else 0}\n{death_link_percent}\n{death_link_duration}\n{milestone_count}\n{location_count}\n", encoding="ascii")
     os.replace(temp, target)
 
 
 def read_progress(folder, session):
     path = folder / (session + ".progress")
     if not path.exists():
-        return 0
+        return set()
     lines = path.read_text(encoding="ascii").splitlines()
-    if len(lines) not in (5, 6) or lines[0] not in ("4", "5") or lines[1] != session:
+    if len(lines) != 5 or lines[0] != "6" or lines[1] != session:
         raise ValueError("Invalid or mismatched progress file")
-    low, high = int(lines[2]), int(lines[3])
-    if low < 0 or low >= (1 << 64) or high < 0:
-        raise ValueError("Invalid check mask")
-    mask = low | (high << 64)
-    if not 0 <= mask <= CHECK_MASK:
-        raise ValueError("Invalid check mask")
-    return mask
+    values = set()
+    if lines[2]:
+        for value in lines[2].split(","):
+            value = int(value)
+            if value < 0 or value in values:
+                raise ValueError("Invalid check list")
+            values.add(value)
+    return values
 
 
-def outgoing(check_mask, server_checked, location_count):
-    checks = [LOCATION_BASE + i for i in range(location_count)
-              if check_mask & (1 << i) and LOCATION_BASE + i not in server_checked]
-    return checks
+def outgoing(checks, server_checked, ids):
+    return [ids[value] for value in checks if 0 <= value < len(ids) and ids[value] not in server_checked]
 
 
 def read_goal(folder, session):

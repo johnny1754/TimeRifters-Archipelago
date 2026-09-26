@@ -6,8 +6,9 @@ Short working list for features to revisit as the mod develops.
 
 - [x] Goal setting: `95_percent`, `99_percent`, `100_percent`, and `final_boss_100_percent`
 - [x] Show selected goal and progress in the in-game overlay
-- [ ] Arena check interval: 25%, 20%, or 10%
-- [ ] Keep goal totals correct for the selected interval and optional escape checks
+- [x] Configurable arena percentage checks (4–20 evenly spaced checks per arena)
+- [x] Keep check totals correct for the selected density and optional escape checks
+- [ ] Revisit the 20-check maximum and excess filler Time Echoes after adding more item types or upgrade categories. Consider a lower cap, an extra-Echo cap, or additional non-Echo filler items then.
 - [ ] Optional Episode Complete checks
 - [ ] Optional hidden escape checks (implemented)
 
@@ -34,4 +35,4 @@ Short working list for features to revisit as the mod develops.
 
 - [ ] Continue testing new options in multiple fresh seeds
 - [x] Write polished installation and troubleshooting instructions
-- [ ] Final public cleanup and 1.0 release
+- [x] Final public cleanup and 1.0 release

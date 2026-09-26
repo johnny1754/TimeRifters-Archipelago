@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace TimeRiftersArchipelago
 {
-    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "0.9.8")]
+    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "1.0.0")]
     [BepInProcess("TimeRifters.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
@@ -30,10 +30,11 @@ namespace TimeRiftersArchipelago
         private Type episodeChooserType, arenaChooserType, arenaCardType, uiTextureType, uiSpriteType;
         private Harmony harmony;
         private string folder, session, pendingSession;
-        private int items, pendingItems, echoes, pendingEchoes, creditsSpent, checksHigh, pendingChecksHigh,
+        private int items, pendingItems, echoes, pendingEchoes, creditsSpent,
             requiredEchoes, pendingRequiredEchoes, goal, pendingGoal;
-        private int deathLinkPercent, pendingDeathLinkPercent;
-        private ulong checks, pendingChecks;
+        private int deathLinkPercent, pendingDeathLinkPercent, deathLinkDuration, pendingDeathLinkDuration;
+        private HashSet<int> checks = new HashSet<int>(), pendingChecks = new HashSet<int>();
+        private int milestoneCount, pendingMilestoneCount;
         private bool isActive, fresh, ready, dirty, escapeChecks, pendingEscapeChecks, episodeKeys, pendingEpisodeKeys,
             arenaShuffle, pendingArenaShuffle, arenaOrderApplied, arenaShuffleWaiting, overlayVisible = true;
         private bool deathLink, pendingDeathLink;
@@ -106,7 +107,7 @@ namespace TimeRiftersArchipelago
                     new HarmonyMethod(typeof(Plugin), "AfterComplete"));
                 PatchWeaponFireMethods(game);
                 ready = true;
-                Logger.LogInfo("[TRAP] READY 0.9.8. Press F8 or HOME at TitleScreen after connecting the AP client.");
+                Logger.LogInfo("[TRAP] READY 1.0.0. Press F8 or HOME at TitleScreen after connecting the AP client.");
                 Logger.LogInfo("[TRAP] Progress folder: " + folder);
             }
             catch (Exception ex)
@@ -125,7 +126,7 @@ namespace TimeRiftersArchipelago
         }
         private object Read(string name) { return Field(gameplay, name).GetValue(null); }
         private bool NormalPlay() { return Field(replay, "gameState").GetValue(null).ToString() == "Play"; }
-        private int LocationTotal { get { return escapeChecks ? Logic.LocationCount : Logic.CoreLocationCount; } }
+        private int LocationTotal { get { return Logic.LocationCount(milestoneCount, escapeChecks); } }
         private static long Now() { return (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds; }
 
         private static string[] ReadLines(string path)
@@ -148,9 +149,9 @@ namespace TimeRiftersArchipelago
                     string path = Path.Combine(folder, "server.txt");
                     if (File.Exists(path))
                         fresh = Logic.ParseSnapshot(ReadLines(path), Now(), out pendingSession,
-                            out pendingItems, out pendingEchoes, out pendingChecks, out pendingChecksHigh,
+                            out pendingItems, out pendingEchoes, out pendingChecks,
                             out pendingEscapeChecks, out pendingEpisodeKeys, out pendingArenaShuffle, out pendingArenaOrder,
-                            out pendingRequiredEchoes, out pendingGoal, out pendingDeathLink, out pendingDeathLinkPercent);
+                            out pendingRequiredEchoes, out pendingGoal, out pendingDeathLink, out pendingDeathLinkPercent, out pendingDeathLinkDuration, out pendingMilestoneCount);
                     if (isActive && fresh && session == pendingSession)
                     {
                         if ((items | pendingItems) != items)
@@ -168,10 +169,8 @@ namespace TimeRiftersArchipelago
                             Logger.LogInfo("[TRAP] " + message);
                         }
                         EvaluateGoal();
-                        ulong combined = checks | pendingChecks;
-                        int combinedHigh = checksHigh | pendingChecksHigh;
-                        if (combined != checks || combinedHigh != checksHigh)
-                        { checks = combined; checksHigh = combinedHigh; dirty = true; }
+                        int before = checks.Count; checks.UnionWith(pendingChecks);
+                        if (checks.Count != before) dirty = true;
                     }
                     if (dirty) SaveProgress();
                 }
@@ -199,7 +198,7 @@ namespace TimeRiftersArchipelago
                     // 25% milestone.
                     if (waitingForNewArenaProgress)
                     {
-                        if (fraction >= .25f) return;
+                        if (fraction >= Logic.MilestonePercent(milestoneCount, 0) / 100f) return;
                         waitingForNewArenaProgress = false;
                     }
                     RecordArenaBest(arena, fraction);
@@ -234,7 +233,7 @@ namespace TimeRiftersArchipelago
                     items = pendingItems;
                     echoes = pendingEchoes;
                     checks = pendingChecks;
-                    checksHigh = pendingChecksHigh;
+                    milestoneCount = pendingMilestoneCount;
                     escapeChecks = pendingEscapeChecks;
                     episodeKeys = pendingEpisodeKeys;
                     arenaShuffle = pendingArenaShuffle;
@@ -243,6 +242,7 @@ namespace TimeRiftersArchipelago
                     goal = pendingGoal;
                     deathLink = pendingDeathLink;
                     deathLinkPercent = pendingDeathLinkPercent;
+                    deathLinkDuration = pendingDeathLinkDuration;
                     arenaOrderApplied = !arenaShuffle;
                     arenaShuffleWaiting = false;
                     goalReached = File.Exists(Path.Combine(folder, session + ".goal"));
@@ -251,15 +251,13 @@ namespace TimeRiftersArchipelago
                     if (File.Exists(path))
                     {
                         string[] lines = ReadLines(path);
-                        ulong savedLow; int savedHigh;
-                        if ((lines.Length != 5 && lines.Length != 6) || (lines[0] != "4" && lines[0] != "5") || lines[1] != session
-                            || !UInt64.TryParse(lines[2], out savedLow) || !Int32.TryParse(lines[3], out savedHigh)
-                            || !Int32.TryParse(lines[4], out creditsSpent) || creditsSpent < 0
-                            || savedHigh < 0 || savedHigh > Logic.HighCheckMask)
+                        HashSet<int> savedChecks;
+                        if (lines.Length != 5 || lines[0] != "6" || lines[1] != session
+                            || !TryProgressChecks(lines[2], LocationTotal, out savedChecks)
+                            || !Int32.TryParse(lines[3], out creditsSpent) || creditsSpent < 0)
                             throw new InvalidDataException("Progress file invalid; preserved for diagnosis.");
-                        checks |= savedLow;
-                        checksHigh |= savedHigh;
-                        if (lines.Length == 6 && !TryArenaBest(lines[5], out arenaBest))
+                        checks.UnionWith(savedChecks);
+                        if (!TryArenaBest(lines[4], out arenaBest))
                             throw new InvalidDataException("Arena best-percent data is invalid; preserved for diagnosis.");
                     }
                     // Echoes are reusable credits for each episode/replay.
@@ -270,7 +268,7 @@ namespace TimeRiftersArchipelago
                     SaveProgress();
                     isActive = true;
                     EvaluateGoal();
-                    message = "AP enabled. Each arena sends checks at 25%, 50%, 75%, and 100%.";
+                    message = "AP enabled. Each arena sends " + milestoneCount + " evenly spaced percentage checks.";
                 Logger.LogInfo("[TRAP] Session activated " + session + "; checks=" + checks + "; items=" + items
                     + "; arenaShuffle=" + arenaShuffle);
                 }
@@ -282,12 +280,31 @@ namespace TimeRiftersArchipelago
         {
             string path = Path.Combine(folder, session + ".progress");
             string temp = path + ".tmp";
-            File.WriteAllText(temp, "5\n" + session + "\n" + checks.ToString(CultureInfo.InvariantCulture)
-                + "\n" + checksHigh.ToString(CultureInfo.InvariantCulture) + "\n"
-                + creditsSpent.ToString(CultureInfo.InvariantCulture) + "\n" + ArenaBestText() + "\n");
+            File.WriteAllText(temp, "6\n" + session + "\n" + ProgressChecksText()
+                + "\n" + creditsSpent.ToString(CultureInfo.InvariantCulture) + "\n" + ArenaBestText() + "\n");
             if (File.Exists(path)) File.Replace(temp, path, null);
             else File.Move(temp, path);
             dirty = false;
+        }
+
+        private string ProgressChecksText()
+        {
+            List<int> values = new List<int>(checks); values.Sort();
+            string[] text = new string[values.Count];
+            for (int index = 0; index < values.Count; index++) text[index] = values[index].ToString(CultureInfo.InvariantCulture);
+            return string.Join(",", text);
+        }
+
+        private static bool TryProgressChecks(string text, int total, out HashSet<int> result)
+        {
+            result = new HashSet<int>(); if (text.Length == 0) return true;
+            foreach (string part in text.Split(','))
+            {
+                int value;
+                if (!Int32.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
+                    || value < 0 || value >= total || !result.Add(value)) return false;
+            }
+            return true;
         }
 
         private string ArenaBestText()
@@ -385,10 +402,10 @@ namespace TimeRiftersArchipelago
             if (lines.Length != 2 || lines[0] != "1" || lines[1] != session)
                 throw new InvalidDataException("DeathLink file is invalid; preserved for diagnosis.");
             File.Delete(path);
-            firingDisabledUntil = Math.Max(firingDisabledUntil, Time.realtimeSinceStartup + 60f);
+            firingDisabledUntil = Math.Max(firingDisabledUntil, Time.realtimeSinceStartup + deathLinkDuration);
             DisableActiveShooters(60f);
-            message = "DeathLink received! Firing disabled for 60 seconds.";
-            Logger.LogInfo("[TRAP] DeathLink received; firing disabled for 60 seconds.");
+            message = "DeathLink received! Firing disabled for " + deathLinkDuration + " seconds.";
+            Logger.LogInfo("[TRAP] DeathLink received; firing disabled for " + deathLinkDuration + " seconds.");
         }
 
         private void DisableActiveShooters(float seconds)
@@ -597,15 +614,14 @@ namespace TimeRiftersArchipelago
 
         private void RecordMilestones(int arena, float fraction)
         {
-            int milestones = Logic.MilestoneMask(true, false, arena, fraction);
-            if (milestones == 0) return;
             int added = 0;
-            for (int milestone = 0; milestone < Logic.MilestonesPerArena; milestone++)
-                if ((milestones & (1 << milestone)) != 0 && Logic.AddCheck(ref checks, ref checksHigh, arena, milestone)) added++;
+            for (int milestone = 0; milestone < milestoneCount; milestone++)
+                if (Logic.MilestoneReached(true, false, arena, fraction, milestoneCount, milestone)
+                    && Logic.AddLocation(checks, Logic.ArenaCheckIndex(arena, milestone, milestoneCount), LocationTotal)) added++;
             if (added == 0) return;
             dirty = true;
             message = "Arena milestone earned: " + (int)(fraction * 100f) + "% | Total: "
-                + Logic.CountChecks(checks, checksHigh) + "/" + LocationTotal;
+                + checks.Count + "/" + LocationTotal;
             Logger.LogInfo("[TRAP] Arena " + arena + " progress " + fraction.ToString(CultureInfo.InvariantCulture)
                 + " earned " + added + " milestone(s).");
             SaveProgress();
@@ -613,10 +629,10 @@ namespace TimeRiftersArchipelago
 
         private void RecordEpisodeComplete(int episode)
         {
-            if (!Logic.AddEpisodeCheck(ref checks, ref checksHigh, episode)) return;
+            if (!Logic.AddLocation(checks, Logic.EpisodeCheckIndex(episode, milestoneCount), LocationTotal)) return;
             dirty = true;
             message = "Episode " + (episode + 1) + " complete! Total: "
-                + Logic.CountChecks(checks, checksHigh) + "/" + LocationTotal;
+                + checks.Count + "/" + LocationTotal;
             Logger.LogInfo("[TRAP] Episode " + episode + " completion check earned.");
             SaveProgress();
         }
@@ -637,20 +653,20 @@ namespace TimeRiftersArchipelago
 
         private void RecordEscape(int arena)
         {
-            if (!Logic.AddEscapeCheck(ref checks, ref checksHigh, arena)) return;
+            if (!Logic.AddLocation(checks, Logic.EscapeCheckIndex(arena, milestoneCount), LocationTotal)) return;
             dirty = true;
             message = "Hidden escape found! Total: "
-                + Logic.CountChecks(checks, checksHigh) + "/" + LocationTotal;
+                + checks.Count + "/" + LocationTotal;
             Logger.LogInfo("[TRAP] Arena " + arena + " hidden escape check earned.");
             SaveProgress();
         }
 
         private void RecordTitleEscape()
         {
-            if (!Logic.AddTitleCheck(ref checks, ref checksHigh)) return;
+            if (!Logic.AddLocation(checks, Logic.TitleCheckIndex(milestoneCount), LocationTotal)) return;
             dirty = true;
             message = "Title screen escape found! Total: "
-                + Logic.CountChecks(checks, checksHigh) + "/" + LocationTotal;
+                + checks.Count + "/" + LocationTotal;
             Logger.LogInfo("[TRAP] Title screen escape check earned.");
             SaveProgress();
         }
@@ -876,12 +892,13 @@ namespace TimeRiftersArchipelago
             string status = !isActive ? "INACTIVE" :
                 !CorrectSession() ? "SESSION CHANGED - restart game before continuing" :
                 fresh ? "CONNECTED" : "OFFLINE - checks queued; received unlocks retained";
-            string arenaProgress = "Arena checks: " + Logic.CountLocations(checks, checksHigh, 0,
-                Logic.ArenaLocationCount) + "/" + Logic.ArenaLocationCount;
-            string episodeProgress = "Episode checks: " + Logic.CountLocations(checks, checksHigh,
-                Logic.ArenaLocationCount, Logic.EpisodeCount) + "/" + Logic.EpisodeCount;
-            string escapeProgress = escapeChecks ? "\nEscape checks: " + Logic.CountLocations(checks, checksHigh,
-                Logic.EscapeLocationStart, Logic.ArenaCount + 1) + "/" + (Logic.ArenaCount + 1) : "";
+            int arenaLocations = Logic.ArenaLocationCount(milestoneCount);
+            string arenaProgress = "Arena checks (" + milestoneCount + " each): " + Logic.CountLocations(checks, 0,
+                arenaLocations) + "/" + arenaLocations;
+            string episodeProgress = "Episode checks: " + Logic.CountLocations(checks,
+                arenaLocations, Logic.EpisodeCount) + "/" + Logic.EpisodeCount;
+            string escapeProgress = escapeChecks ? "\nEscape checks: " + Logic.CountLocations(checks,
+                Logic.EscapeLocationStart(milestoneCount), Logic.ArenaCount + 1) + "/" + (Logic.ArenaCount + 1) : "";
             string episodeAccess = episodeKeys ? EpisodeStatus("Episode 1", true) + " | "
                 + EpisodeStatus("Episode 2", (items & 32) != 0) + " | "
                 + EpisodeStatus("Episode 3", (items & 64) != 0)
@@ -892,7 +909,7 @@ namespace TimeRiftersArchipelago
                 ? "Goal: Arena Boss 100% | Current: " + (arenaBest[1] / 100f).ToString("0.00", CultureInfo.InvariantCulture) + "%"
                 : "Goal: " + goal + "% average | Current: " + AverageBestPercent().ToString("0.00", CultureInfo.InvariantCulture) + "%";
             if (goalReached) goalProgress = "<color=#61E58B>" + goalProgress + " | COMPLETE</color>";
-            string deathLinkStatus = deathLink ? "<color=#FFCF70>DeathLink: ON below " + deathLinkPercent + "%</color>"
+            string deathLinkStatus = deathLink ? "<color=#FFCF70>DeathLink: ON below " + deathLinkPercent + "% | " + deathLinkDuration + "s lock</color>"
                 : "<color=#A9B6C9>DeathLink: OFF</color>";
             if (Time.realtimeSinceStartup < firingDisabledUntil)
                 deathLinkStatus += " | <color=#FF6B6B>FIRING LOCK: "
@@ -902,9 +919,9 @@ namespace TimeRiftersArchipelago
                 ? "\n<color=#A9D8FF>Episode 1:</color> " + ArenaLine(0) + " | " + EpisodeBestPercent(0)
                 + "\n<color=#A9D8FF>Episode 2:</color> " + ArenaLine(5) + " | " + EpisodeBestPercent(1)
                 + "\n<color=#A9D8FF>Episode 3:</color> " + ArenaLine(10) + " | " + EpisodeBestPercent(2)
-                : atTitle ? "\n<color=#A9D8FF>Episode 1:</color> " + EpisodeBestPercent(0)
-                + "\n<color=#A9D8FF>Episode 2:</color> " + EpisodeBestPercent(1)
-                + "\n<color=#A9D8FF>Episode 3:</color> " + EpisodeBestPercent(2) : "";
+                : atTitle ? "\n<color=#A9D8FF>Episode 1:</color> " + ArenaLine(0) + " | " + EpisodeBestPercent(0)
+                + "\n<color=#A9D8FF>Episode 2:</color> " + ArenaLine(5) + " | " + EpisodeBestPercent(1)
+                + "\n<color=#A9D8FF>Episode 3:</color> " + ArenaLine(10) + " | " + EpisodeBestPercent(2) : "";
             if (overlayStyle == null)
             {
                 overlayStyle = new GUIStyle(GUI.skin.box);
@@ -916,7 +933,7 @@ namespace TimeRiftersArchipelago
             }
             int overlayHeight = (escapeChecks ? 375 : 345) + (shuffleDetails.Length == 0 ? 0 : 100) + (!isActive ? 45 : 0);
             GUI.Box(new Rect(20, 20, Math.Min(980, Screen.width - 40), overlayHeight),
-                "TIME RIFTERS AP 0.9.6  |  " + status + "\n"
+                "TIME RIFTERS AP 1.0.0  |  " + status + "\n"
                 + WeaponStatus("Flak Cannon", (items & 1) != 0)
                 + " | " + WeaponStatus("Plasma Beam", (items & 2) != 0)
                 + " | " + WeaponStatus("Particle Ball", (items & 4) != 0) + "\n"
@@ -938,7 +955,9 @@ namespace TimeRiftersArchipelago
             for (int slot = 0; slot < 5; slot++)
             {
                 if (slot > 0) line += "  |  ";
-                line += (slot + 1) + ". " + ArenaNames[arenaOrder[firstSlot + slot]];
+                int arena = arenaOrder[firstSlot + slot];
+                line += (slot + 1) + ". " + ArenaNames[arena] + " "
+                    + (arenaBest[arena] / 100f).ToString("0.0", CultureInfo.InvariantCulture) + "%";
             }
             return line;
         }

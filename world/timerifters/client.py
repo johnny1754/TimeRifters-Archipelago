@@ -4,7 +4,7 @@ import socket
 
 from CommonClient import CommonContext, server_loop, gui_enabled, get_base_parser
 from NetUtils import ClientStatus
-from .bridge import default_directory, session_key, item_state, mask_for_locations, write_snapshot, read_progress, read_goal, write_deathlink, consume_death, outgoing
+from .bridge import default_directory, session_key, item_state, location_ids, relative_locations, write_snapshot, read_progress, read_goal, write_deathlink, consume_death, outgoing
 
 logger = logging.getLogger("Client")
 
@@ -28,6 +28,8 @@ class RiftersContext(CommonContext):
         self.goal = 100
         self.death_link = False
         self.death_link_percent = 50
+        self.death_link_duration = 60
+        self.arena_percentage_checks = 4
         self.pending_deathlink = False
 
     async def server_auth(self, password_requested=False):
@@ -48,24 +50,28 @@ class RiftersContext(CommonContext):
             self.goal = data.get("goal")
             self.death_link = bool(data.get("death_link"))
             self.death_link_percent = data.get("death_link_percent")
+            self.death_link_duration = data.get("death_link_duration")
+            self.arena_percentage_checks = data.get("arena_percentage_checks")
             raw_order = data.get("arena_order")
             valid_order = isinstance(raw_order, list) and len(raw_order) == 15 and sorted(raw_order) == list(range(15))
             if valid_order:
                 self.arena_order = list(raw_order)
-            expected_locations = 79 if self.escape_checks else 63
-            self.protocol_ok = (data.get("protocol") == 14 and data.get("feature_set") == "death_link_percent"
+            expected_locations = 15 * self.arena_percentage_checks + 3 + (16 if self.escape_checks else 0) if isinstance(self.arena_percentage_checks, int) else -1
+            self.protocol_ok = (data.get("protocol") == 17 and data.get("feature_set") == "death_link_duration"
                                 and data.get("item_base") == 9473100 and data.get("location_base") == 9473200
                                 and data.get("location_count") == expected_locations and valid_order
                                 and isinstance(self.required_time_echoes, int) and 25 <= self.required_time_echoes <= 84
                                 and self.goal in (95, 99, 100, 101)
-                                and isinstance(self.death_link_percent, int) and 1 <= self.death_link_percent <= 100)
+                                and isinstance(self.death_link_percent, int) and 1 <= self.death_link_percent <= 100
+                                and isinstance(self.death_link_duration, int) and 30 <= self.death_link_duration <= 120
+                                and isinstance(self.arena_percentage_checks, int) and 4 <= self.arena_percentage_checks <= 20)
             self.sent_goal = False
             seed = self.room_seed or getattr(self, "server_seed_name", None) or self.seed_name or "pending-room-info"
             self.session = session_key(seed, self.team, self.slot)
             if self.protocol_ok:
                 logger.info("Time Rifters slot connected. Game bridge is ready.")
             else:
-                logger.error("Wrong slot data. Generate a fresh v0.9.8 seed with this APWorld.")
+                logger.error("Wrong slot data. Generate a fresh v1.0.0 seed with this APWorld.")
 
     def on_deathlink(self, data):
         self.pending_deathlink = True
@@ -83,19 +89,21 @@ class RiftersContext(CommonContext):
                     if self.death_link != ("DeathLink" in self.tags):
                         await self.update_death_link(self.death_link)
                     weapons, echoes = item_state(item.item for item in self.items_received)
-                    location_count = 79 if self.escape_checks else 63
-                    server_mask = mask_for_locations(self.checked_locations, location_count)
-                    write_snapshot(self.folder, self.session, weapons, echoes, server_mask, self.escape_checks,
+                    location_count = 15 * self.arena_percentage_checks + 3 + (16 if self.escape_checks else 0)
+                    ids = location_ids(self.arena_percentage_checks, self.escape_checks)
+                    server_checks = relative_locations(self.checked_locations, ids)
+                    write_snapshot(self.folder, self.session, weapons, echoes, server_checks, self.escape_checks,
                                    self.episode_keys, self.arena_shuffle, self.arena_order,
-                                   self.required_time_echoes, self.goal, self.death_link, self.death_link_percent)
+                                   self.required_time_echoes, self.goal, self.death_link, self.death_link_percent, self.death_link_duration,
+                                   self.arena_percentage_checks, location_count)
                     if self.pending_deathlink:
                         write_deathlink(self.folder, self.session)
                         self.pending_deathlink = False
-                        logger.info("DeathLink received: the game will lock firing for one minute during the next active arena.")
+                        logger.info("DeathLink received: the game will lock firing for %s seconds during the next active arena.", self.death_link_duration)
                     if self.death_link and consume_death(self.folder, self.session):
                         await self.send_death("finished a Time Rifters arena below the DeathLink threshold")
-                    local_mask = read_progress(self.folder, self.session)
-                    checks = outgoing(local_mask | server_mask, self.checked_locations, location_count)
+                    local_checks = read_progress(self.folder, self.session)
+                    checks = outgoing(local_checks | server_checks, self.checked_locations, ids)
                     if checks:
                         await self.send_msgs([{"cmd": "LocationChecks", "locations": checks}])
                     if read_goal(self.folder, self.session) and not self.sent_goal:
