@@ -10,16 +10,15 @@ It adds item randomization, arena destruction checks, episode keys, reusable Tim
 
 Download the newest package from the [GitHub Releases page](https://github.com/johnny1754/TimeRifters-Archipelago/releases/latest).
 
-Each release ZIP contains the game plugin, the `.apworld`, the default YAML, this guide, and a `source/` folder with the complete C# and Python source used for that release.
+Each release ZIP contains a **ready-to-copy game setup** with the game plugin and preconfigured BepInEx, the `.apworld`, the default YAML, this guide, and a `source/` folder with the complete C# and Python source used for that release.
 
 ## Requirements
 
 * A legal Windows copy of **Time Rifters**
 * [Archipelago for Windows](https://github.com/ArchipelagoMW/Archipelago/releases/latest)
-* [BepInEx 5.4.23.2](https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.2), using **`BepInEx_win_x86_5.4.23.2.zip`**
 * The newest Time Rifters Archipelago release ZIP
 
-Time Rifters is a 32-bit game. **Do not use BepInEx x64 or BepInEx 6** for this mod.
+The release includes **BepInEx 5.4.23.2 Windows x86** already configured for Time Rifters. Time Rifters is a 32-bit game, so do not substitute BepInEx x64 or BepInEx 6.
 
 ## Installation
 
@@ -30,15 +29,17 @@ Time Rifters is a 32-bit game. **Do not use BepInEx x64 or BepInEx 6** for this 
 
 See Archipelago's official [setup guide](https://archipelago.gg/tutorial/Archipelago/setup_en) for its launcher, Generator, server, and clients.
 
-### 2. Install BepInEx into Time Rifters
+### 2. Install the ready-to-copy game files
 
 1. In Steam, open **Library → Time Rifters → Manage → Browse local files**.
-2. Download **`BepInEx_win_x86_5.4.23.2.zip`** from the BepInEx link above.
-3. Extract the **contents** of that ZIP directly beside `TimeRifters.exe`. Do not leave BepInEx inside an extra nested folder.
-4. Start Time Rifters once, then close it. This creates `BepInEx\plugins`.
-5. Copy `TimeRiftersArchipelago.dll` from this release into:
+2. Extract this release ZIP somewhere convenient.
+3. Open its `game_files` folder.
+4. Copy **everything inside** `game_files` into the Time Rifters folder that Steam opened. Allow Windows to merge folders and replace files if asked.
 
-   `Time Rifters\BepInEx\plugins\`
+   The copied files include BepInEx, its Time Rifters compatibility config, and `TimeRiftersArchipelago.dll` already in `BepInEx\plugins`.
+5. Start the game normally from Steam, then close it. Do not launch `TimeRifters_DirectToRift.exe`.
+
+   The included compatibility config is required because Time Rifters' Unity 4.5.5 engine crashes when BepInEx uses its default startup entry point.
 
 ### 3. Install the Archipelago world
 
@@ -109,7 +110,9 @@ Do not mix a DLL, APWorld, and seed from different protocol versions.
 
 ### Time Rifters stops launching after BepInEx is installed
 
-Confirm that you used **BepInEx 5.4.23.2 Windows x86** and extracted its contents directly beside `TimeRifters.exe`. x64 and BepInEx 6 are not compatible with this plugin.
+Confirm that you copied the **contents** of the release's `game_files` folder directly beside `TimeRifters.exe`—not inside another nested folder. The game folder should now contain `winhttp.dll`, `doorstop_config.ini`, and a `BepInEx` folder.
+
+Also confirm that `Time Rifters\BepInEx\config\BepInEx.cfg` contains `Type = MonoBehaviour` under `[Preloader.Entrypoint]`. Default BepInEx starts too early in Time Rifters and crashes inside `ThreadingHelper`; the included config uses the compatible Unity 4 entry point.
 
 ### Time Rifters Client is missing from the launcher
 
@@ -131,7 +134,7 @@ Set `escape_checks: true` before generating the seed. Existing seeds keep the ch
 
 The release ZIP includes its exact source in `source/`. The repository is at [github.com/johnny1754/TimeRifters-Archipelago](https://github.com/johnny1754/TimeRifters-Archipelago).
 
-The source package intentionally excludes Time Rifters and BepInEx files. `build.sh` rebuilds the DLL when given a local Time Rifters `Managed` folder and BepInEx core DLLs.
+The source package intentionally excludes Time Rifters. The release includes the unmodified BepInEx 5.4.23.2 Windows x86 runtime with a separate Time Rifters compatibility config; see `THIRD_PARTY_NOTICES.txt`. `build.sh` rebuilds the DLL when given a local Time Rifters `Managed` folder and BepInEx core DLLs.
 
 ## Status
 
