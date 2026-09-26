@@ -12,6 +12,10 @@ Download the newest package from the [GitHub Releases page](https://github.com/j
 
 Each release ZIP contains a **ready-to-copy game setup** with the game plugin and preconfigured BepInEx, the `.apworld`, the default YAML, this guide, and a `source/` folder with the complete C# and Python source used for that release.
 
+## Community
+
+Questions, feedback, and other community APWorld releases can be found in the [Archipelago Discord #apworld-new channel](https://discord.com/channels/731205301247803413/1552755726118686841).
+
 ## Requirements
 
 * A legal Windows copy of **Time Rifters**
