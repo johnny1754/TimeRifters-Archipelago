@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace TimeRiftersArchipelago
 {
-    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "1.0.0")]
+    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "1.0.8")]
     [BepInProcess("TimeRifters.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
@@ -45,6 +45,7 @@ namespace TimeRiftersArchipelago
         private bool cardVisualsCaptured;
         private float nextPoll;
         private float firingDisabledUntil;
+        private string lastLoadedLevel;
         private int lastPolledArena = -1;
         private bool waitingForNewArenaProgress;
         private string message = "WAITING FOR AP CLIENT: connect as your YAML player name, leave the client open, then press F8 or HOME.";
@@ -107,7 +108,7 @@ namespace TimeRiftersArchipelago
                     new HarmonyMethod(typeof(Plugin), "AfterComplete"));
                 PatchWeaponFireMethods(game);
                 ready = true;
-                Logger.LogInfo("[TRAP] READY 1.0.0. Press F8 or HOME at TitleScreen after connecting the AP client.");
+                Logger.LogInfo("[TRAP] READY 1.0.8. Press F8 or HOME at TitleScreen after connecting the AP client.");
                 Logger.LogInfo("[TRAP] Progress folder: " + folder);
             }
             catch (Exception ex)
@@ -140,6 +141,10 @@ namespace TimeRiftersArchipelago
         private void Update()
         {
             if (!ready) return;
+            string loadedLevel = Application.loadedLevelName;
+            if (isActive && loadedLevel == "TitleScreen" && lastLoadedLevel != "TitleScreen")
+                RestoreCreditsAtTitle();
+            lastLoadedLevel = loadedLevel;
             if (Time.realtimeSinceStartup >= nextPoll)
             {
                 nextPoll = Time.realtimeSinceStartup + 0.5f;
@@ -431,6 +436,16 @@ namespace TimeRiftersArchipelago
                 p.Logger.LogInfo("[TRAP] Shop reset: restored reusable Time Echo credits.");
             }
             catch (Exception ex) { p.Logger.LogError("[TRAP] Could not restore Time Echo credits: " + ex); }
+        }
+
+        private void RestoreCreditsAtTitle()
+        {
+            if (creditsSpent == 0) return;
+            creditsSpent = 0;
+            dirty = true;
+            SaveProgress();
+            message = "Returned to title screen: all Time Echo credits are available again.";
+            Logger.LogInfo("[TRAP] Title screen: restored reusable Time Echo credits.");
         }
 
         private void ApplyArenaOrder(int[] order)
@@ -915,13 +930,10 @@ namespace TimeRiftersArchipelago
                 deathLinkStatus += " | <color=#FF6B6B>FIRING LOCK: "
                     + Math.Max(1, (int)Math.Ceiling(firingDisabledUntil - Time.realtimeSinceStartup)) + "s</color>";
             bool atTitle = Application.loadedLevelName == "TitleScreen";
-            string shuffleDetails = atTitle && arenaShuffle && arenaOrderApplied
-                ? "\n<color=#A9D8FF>Episode 1:</color> " + ArenaLine(0) + " | " + EpisodeBestPercent(0)
-                + "\n<color=#A9D8FF>Episode 2:</color> " + ArenaLine(5) + " | " + EpisodeBestPercent(1)
-                + "\n<color=#A9D8FF>Episode 3:</color> " + ArenaLine(10) + " | " + EpisodeBestPercent(2)
-                : atTitle ? "\n<color=#A9D8FF>Episode 1:</color> " + ArenaLine(0) + " | " + EpisodeBestPercent(0)
-                + "\n<color=#A9D8FF>Episode 2:</color> " + ArenaLine(5) + " | " + EpisodeBestPercent(1)
-                + "\n<color=#A9D8FF>Episode 3:</color> " + ArenaLine(10) + " | " + EpisodeBestPercent(2) : "";
+            string shuffleDetails = atTitle
+                ? "\n<color=#A9D8FF>Episode 1:</color> " + EpisodeBestPercent(0) + " | " + ArenaLine(0)
+                + "\n<color=#A9D8FF>Episode 2:</color> " + EpisodeBestPercent(1) + " | " + ArenaLine(5)
+                + "\n<color=#A9D8FF>Episode 3:</color> " + EpisodeBestPercent(2) + " | " + ArenaLine(10) : "";
             if (overlayStyle == null)
             {
                 overlayStyle = new GUIStyle(GUI.skin.box);
@@ -931,9 +943,9 @@ namespace TimeRiftersArchipelago
                 overlayStyle.alignment = TextAnchor.UpperLeft;
                 overlayStyle.padding = new RectOffset(16, 16, 12, 12);
             }
-            int overlayHeight = (escapeChecks ? 375 : 345) + (shuffleDetails.Length == 0 ? 0 : 100) + (!isActive ? 45 : 0);
-            GUI.Box(new Rect(20, 20, Math.Min(980, Screen.width - 40), overlayHeight),
-                "TIME RIFTERS AP 1.0.0  |  " + status + "\n"
+            int overlayWidth = Math.Min(980, Screen.width - 40);
+            string overlayText = "TIME RIFTERS AP 1.0.8  |  " + status + "\n"
+                + "F7 hides panel  |  F8/Home at title: enable or refresh AP.\n"
                 + WeaponStatus("Flak Cannon", (items & 1) != 0)
                 + " | " + WeaponStatus("Plasma Beam", (items & 2) != 0)
                 + " | " + WeaponStatus("Particle Ball", (items & 4) != 0) + "\n"
@@ -945,7 +957,9 @@ namespace TimeRiftersArchipelago
                 + goalProgress + "\n"
                 + deathLinkStatus + "\n"
                 + "Time Echo credits: " + Math.Max(0, echoes - creditsSpent) + shuffleDetails + "\n"
-                + "F7 hides panel. " + message, overlayStyle);
+                + "<color=#FFCF70>Status:</color> " + message;
+            int overlayHeight = Mathf.CeilToInt(overlayStyle.CalcHeight(new GUIContent(overlayText), overlayWidth));
+            GUI.Box(new Rect(20, 20, overlayWidth, overlayHeight), overlayText, overlayStyle);
         }
 
         private string ArenaLine(int firstSlot)
@@ -964,14 +978,14 @@ namespace TimeRiftersArchipelago
 
         private string EpisodeBestPercent(int episode)
         {
-            if (episode < 0 || episode >= Logic.EpisodeCount) return "Best: 0.00%";
+            if (episode < 0 || episode >= Logic.EpisodeCount) return "0.00%";
             int total = 0;
             for (int slot = 0; slot < 5; slot++)
             {
                 int arena = arenaOrder == null ? episode * 5 + slot : arenaOrder[episode * 5 + slot];
                 total += arenaBest[arena];
             }
-            return "Best: " + (total / 500f).ToString("0.00", CultureInfo.InvariantCulture) + "%";
+            return (total / 500f).ToString("0.00", CultureInfo.InvariantCulture) + "%";
         }
 
         private static string WeaponStatus(string weapon, bool unlocked)

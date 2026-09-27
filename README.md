@@ -1,153 +1,220 @@
 # Time Rifters Archipelago
 
-An in-development Archipelago integration for the Windows Steam version of **Time Rifters**.
+Play the Windows Steam version of **Time Rifters** as an Archipelago world. Weapons, Time Echo credits, episode keys, arena destruction checks, hidden escapes, goals, and optional DeathLink are randomized into your Archipelago room.
 
-It adds item randomization, arena destruction checks, episode keys, reusable Time Echo upgrade credits, optional arena shuffling, configurable goals, hidden-escape checks, and optional DeathLink.
+## Read this first
 
-> This is a community project. It does not include Time Rifters, BepInEx, or Archipelago itself.
+**Play Campaign Episodes only.** At Time Rifters' title screen, choose the normal campaign and its Episodes 1–3.
 
-## Download
+**Do not use Experiment Arenas for Archipelago.** They are not part of this integration: they do not send Archipelago checks and do not use Archipelago weapons, keys, progression, or tracking.
 
-Download the newest package from the [GitHub Releases page](https://github.com/johnny1754/TimeRifters-Archipelago/releases/latest).
+The release ZIP is designed to work without editing code, BepInEx files, or the included YAML.
 
-Each release ZIP contains a **ready-to-copy game setup** with the game plugin and preconfigured BepInEx, the `.apworld`, the default YAML, this guide, and a `source/` folder with the complete C# and Python source used for that release.
+## Quick setup (already familiar with Archipelago)
 
-## Requirements
+1. Copy the release's `game_files` **contents** into Time Rifters' Steam folder.
+2. In ArchipelagoLauncher, use **Install APWorld** and select `timerifters.apworld`; restart the launcher.
+3. Copy `Time-Rifters.yaml` to `C:\ProgramData\Archipelago\Players`.
+4. Use **Generate** in ArchipelagoLauncher.
+5. Upload the generated `AP_....zip` from `C:\ProgramData\Archipelago\output` to the [Archipelago Host Game page](https://archipelago.gg/uploads), then click **Create New Room**.
+6. Open Time Rifters Client, connect to the `archipelago.gg:PORT` address shown on the room page as `Time`, then start a Campaign Episode and press **F8** or **Home** at the title screen.
 
-* A legal Windows copy of **Time Rifters**
-* [Archipelago for Windows](https://github.com/ArchipelagoMW/Archipelago/releases/latest)
-* The newest Time Rifters Archipelago release ZIP
+Need help or want to share feedback? [Time Rifters Archipelago / #apworld-new on Discord](https://discord.com/channels/731205301247803413/1552755726118686841).
 
-The release includes **BepInEx 5.4.23.2 Windows x86** already configured for Time Rifters. Time Rifters is a 32-bit game, so do not substitute BepInEx x64 or BepInEx 6.
+## What the words mean
 
-## Installation
+| Thing | What it is | What you do with it |
+| --- | --- | --- |
+| `timerifters.apworld` | The file that teaches Archipelago about Time Rifters. | Install it once in ArchipelagoLauncher. |
+| `Time-Rifters.yaml` | Your ready-made game settings. | Copy it unchanged into Archipelago's `Players` folder. |
+| `AP_....zip` | Your newly generated Archipelago game file. | Upload it to Archipelago WebHost to create your room. |
+| Time Rifters Client | The small Archipelago program that connects your game to the room. | Leave it open while you play. |
+
+## What you need
+
+* A legal Windows Steam copy of **Time Rifters**.
+* [Archipelago for Windows](https://github.com/ArchipelagoMW/Archipelago/releases/latest).
+* The newest [Time Rifters Archipelago release](https://github.com/johnny1754/TimeRifters-Archipelago/releases/latest).
+
+The release already contains the correct **BepInEx 5.4.23.2 Windows x86** files and the Time Rifters compatibility configuration. Do not download a separate BepInEx version. Time Rifters is 32-bit, so BepInEx x64 and BepInEx 6 are not compatible.
+
+## First game: follow these steps exactly
+
+This first-game route uses the included tested settings. **Do not edit the YAML file** for a one-player game.
 
 ### 1. Install Archipelago
 
-1. Download and run the current Windows Archipelago installer.
-2. Start `ArchipelagoLauncher` once after installation.
+1. Download and install the current Windows version of Archipelago from the link above.
+2. Open `ArchipelagoLauncher` once, then close it.
 
-See Archipelago's official [setup guide](https://archipelago.gg/tutorial/Archipelago/setup_en) for its launcher, Generator, server, and clients.
+Archipelago normally installs in `C:\ProgramData\Archipelago`. `ProgramData` is a hidden Windows folder; the steps below open it for you.
 
-### 2. Install the ready-to-copy game files
+### 2. Put the mod files in your Steam game folder
 
-1. In Steam, open **Library → Time Rifters → Manage → Browse local files**.
-2. Extract this release ZIP somewhere convenient.
-3. Open its `game_files` folder.
-4. Copy **everything inside** `game_files` into the Time Rifters folder that Steam opened. Allow Windows to merge folders and replace files if asked.
+1. Open **Steam**.
+2. Go to **Library**.
+3. Right-click **Time Rifters**.
+4. Choose **Manage → Browse local files**. A File Explorer window opens: this is your Time Rifters game folder.
+5. Extract the Time Rifters Archipelago release ZIP somewhere easy to find, such as Downloads.
+6. Open the extracted release folder, then open **`game_files`**.
+7. Copy **everything inside `game_files`** into the Steam folder from step 4.
+8. If Windows asks, choose **Replace the files in the destination** and allow folders to merge.
+9. Start Time Rifters normally from Steam once, then close it.
 
-   The copied files include BepInEx, its Time Rifters compatibility config, and `TimeRiftersArchipelago.dll` already in `BepInEx\plugins`.
-5. Start the game normally from Steam, then close it. Do not launch `TimeRifters_DirectToRift.exe`.
+Do **not** launch `TimeRifters_DirectToRift.exe`. Start the game through Steam as usual.
 
-   The included compatibility config is required because Time Rifters' Unity 4.5.5 engine crashes when BepInEx uses its default startup entry point.
+### 3. Install the Time Rifters APWorld
 
-### 3. Install the Archipelago world
+1. Open **ArchipelagoLauncher**.
+2. Click **Install APWorld**.
+3. Select `timerifters.apworld` from the extracted release folder.
+4. Close and reopen ArchipelagoLauncher.
+5. Confirm that **Time Rifters Client** appears in the launcher.
 
-1. Extract the release ZIP somewhere convenient.
-2. Open `ArchipelagoLauncher`.
-3. Choose **Install APWorld** and select `timerifters.apworld` from the extracted release.
-4. Restart the launcher if **Time Rifters Client** does not appear in its client list.
+### 4. Set up your YAML without editing it
 
-### 4. Configure and generate
+1. Press **Windows + R**.
+2. Paste this, then press Enter:
 
-1. Copy `Time-Rifters.yaml` to your Archipelago `Players` folder.
-2. Change `name: Time` to your desired player name if needed.
-3. Keep the defaults or edit the `Time Rifters:` section below.
-4. Generate a **fresh seed** with this APWorld and YAML.
+   ```text
+   %ProgramData%\Archipelago
+   ```
 
-The included default is a tested standard setup: 99% average goal, 50 required Time Echoes, hidden escapes and episode keys enabled, with arena shuffle and DeathLink disabled.
+3. Open the **`Players`** folder. If it does not exist, create a folder named exactly `Players`.
+4. Copy the release's **`Time-Rifters.yaml`** into that `Players` folder.
+5. Leave it alone. Do not open it, rename it, or change its settings for your first game.
 
-### 5. Play
+The included YAML already uses the recommended standard settings: 95% average goal, 50 Time Echoes, episode keys on, hidden escape checks off, five percentage checks per arena, arena shuffle off, and DeathLink off. Its player name is **Time**; use `Time` when the client asks for your slot name.
 
-1. Host or join the generated Archipelago room.
-2. In `ArchipelagoLauncher`, open **Time Rifters Client** and connect to the room using your YAML player name.
-3. Start Time Rifters.
-4. At the title screen, press **F8** or **Home** to enable Archipelago mode.
-5. Press **F7** to hide or show the status panel.
+> ArchipelagoLauncher does the generation; the YAML is simply the settings card it reads. The Launcher can create template YAMLs, but it does not provide a separate settings screen for a custom APWorld. Using the included file unchanged is the intended beginner setup.
 
-## How it plays
+### 5. Generate your game
 
-* Pistol is available from the start.
-* Flak Cannon, Plasma Beam, Particle Ball, Rocket Launcher, and Spread Rifle are randomized progression items.
-* Every arena has evenly spaced destruction checks, plus episode completion checks. The default four checks are **25%, 50%, 75%, and 100%**.
-* Time Echoes are reusable shop-upgrade credits for every new episode or replay.
-* Arena Boss always remains Episode 3 Arena 5 when arena shuffle is enabled.
+1. Open **ArchipelagoLauncher**.
+2. Click **Generate**.
+3. Wait for generation to finish. Do not select the `.apworld` or YAML manually at this step; the launcher reads the YAML from the `Players` folder.
+4. Your generated room file is in:
 
-## YAML options
+   ```text
+   C:\ProgramData\Archipelago\output
+   ```
+
+   It will have a name similar to `AP_123456789.zip`.
+
+### 6. Host the room on the Archipelago website
+
+1. Open the [Archipelago Host Game page](https://archipelago.gg/uploads).
+2. Click **Upload File** and select the `AP_....zip` file you made in `C:\ProgramData\Archipelago\output`.
+3. Wait for the Seed Info page, then click **Create New Room**.
+4. Keep the new room page open. It shows the connection address in this form:
+
+   ```text
+   archipelago.gg:PORT
+   ```
+
+5. Copy that whole address. This is the address you will use in Time Rifters Client.
+
+WebHost is the recommended route for this mod: it avoids local-server and port-forwarding problems, keeps the room available for the group, and provides the tracker link.
+
+### 7. Connect and play
+
+1. In ArchipelagoLauncher, open **Time Rifters Client**.
+2. Connect it to the `archipelago.gg:PORT` address from your room page and enter the slot name **Time**.
+3. Leave Time Rifters Client open.
+4. Start Time Rifters through Steam.
+5. At the title screen, press **F8** or **Home** once. The top-left panel should say **CONNECTED**.
+6. Start a **Campaign Episode**. Do not use Experiment Arenas.
+
+While playing:
+
+* **F7** hides or shows the top-left Archipelago panel.
+* **F8** or **Home** enables/disables Archipelago mode at the title screen only.
+* Episode 1 starts available. Episode 2 and Episode 3 may be locked until you receive their Archipelago keys. This is normal.
+* The panel's **Status** line shows the latest received item, sent check, locked weapon, locked episode, or other update.
+
+## If you are playing with other people
+
+Every game slot needs its own YAML. For a multiworld, copy `Time-Rifters.yaml` once for each Time Rifters player, then give every copy a different `name:` on its first line (for example, `name: Johnny`). This is the one time you should edit the included YAML. Gather every player's YAML in the host's `C:\ProgramData\Archipelago\Players` folder before clicking **Generate**. Each player then connects their own game client with the player name from their own YAML.
+
+After generation, the host uploads the single `AP_....zip` file to the [Archipelago Host Game page](https://archipelago.gg/uploads), clicks **Create New Room**, and sends the resulting room-page link to the group. Every player uses the same `archipelago.gg:PORT` address shown there, but enters their own slot name. Do not use `localhost` for a WebHost room.
+
+## Default settings and optional changes
+
+You do not need to change anything for the standard experience. The YAML options below are only for players who intentionally want to customize a later game. After changing options, generate a **new** seed.
 
 ```yaml
 Time Rifters:
-  escape_checks: true
+  escape_checks: false
   episode_keys: true
   arena_shuffle: false
-  arena_percentage_checks: 4
+  arena_percentage_checks: 5
   required_time_echoes: 50
-  goal: 99_percent
+  goal: 95_percent
   death_link: false
   death_link_percent: 50
   death_link_duration: 60
 ```
 
-| Option | Default | What it does |
+| Option | Standard setting | What it changes |
 | --- | --- | --- |
-| `escape_checks` | `true` | Adds 15 arena escapes and the title-screen escape: 16 bonus checks. |
-| `episode_keys` | `true` | Requires the randomized Episode 2 and Episode 3 Keys before those episodes can start. |
-| `arena_shuffle` | `false` | Shuffles the other 14 arenas between episode groups; Arena Boss stays Episode 3 Arena 5. |
-| `arena_percentage_checks` | `4` | Checks per arena. Slider range: 4–20, spaced evenly through 100%. Four is 25/50/75/100; ten is 10/20/…/100. Higher values add checks and room for Time Echoes. |
-| `required_time_echoes` | `50` | Progression Time Echo count. Slider range: 25–84. Enable escape checks or raise arena percentage checks if the seed needs more locations. |
-| `goal` | `99_percent` | `95_percent`, `99_percent`, and `100_percent` use the average best destruction across all 15 arenas. `final_boss_100_percent` requires Arena Boss at 100%. |
-| `death_link` | `false` | Enables DeathLink participation. |
-| `death_link_percent` | `50` | With DeathLink enabled, completing an arena below this value sends a DeathLink. Slider range: 1–100. |
-| `death_link_duration` | `60` | Firing-lock duration after receiving a DeathLink. Slider range: 30–120 seconds. |
+| `escape_checks` | `false` | Adds 15 arena escapes and one title-screen escape: 16 extra checks. Enable this when you want more checks. |
+| `episode_keys` | `true` | Episode 2 and 3 need their randomized keys. |
+| `arena_shuffle` | `false` | Moves 14 arenas between the three Campaign Episode groups. Arena Boss remains Episode 3 Arena 5. |
+| `arena_percentage_checks` | `5` | Checks per arena. Five means 20%, 40%, 60%, 80%, and 100%. Higher values (up to 20) add checks and room for Time Echoes. |
+| `required_time_echoes` | `50` | Time Echoes required for the goal. Range: 25–84. Higher values need enough checks. |
+| `goal` | `95_percent` | `95_percent`, `99_percent`, and `100_percent` use the average best destruction across all 15 arenas. `final_boss_100_percent` requires Arena Boss at 100%. |
+| `death_link` | `false` | Lets this game send and receive DeathLink. |
+| `death_link_percent` | `50` | Finishing an arena below this percentage sends DeathLink when DeathLink is enabled. |
+| `death_link_duration` | `60` | Seconds firing is disabled after receiving DeathLink. Range: 30–120. |
 
 ## Updating an existing install
 
-When a release changes the bridge protocol, update **both** files, then make a new seed:
+For a normal UI-only update, close Time Rifters and replace `BepInEx\plugins\TimeRiftersArchipelago.dll` with the new DLL.
 
-1. Install the new `timerifters.apworld` using the launcher.
-2. Replace `TimeRiftersArchipelago.dll` in `BepInEx\plugins`.
-3. Generate a fresh seed with the new YAML/APWorld.
+If the release says that its APWorld or protocol changed:
 
-Do not mix a DLL, APWorld, and seed from different protocol versions. The current build uses stable percentage location IDs, so the tracker and hints show the correct percentage names at every check-density setting.
+1. Install the new `timerifters.apworld` through **Install APWorld**.
+2. Replace the DLL.
+3. Use the included YAML defaults or new options file.
+4. Generate a fresh seed.
+
+Never use a new DLL with an old seed when the release notes say a new seed is required.
 
 ## Troubleshooting
 
-### Time Rifters stops launching after BepInEx is installed
+### Time Rifters crashes or will not open after installation
 
-Confirm that you copied the **contents** of the release's `game_files` folder directly beside `TimeRifters.exe`—not inside another nested folder. The game folder should now contain `winhttp.dll`, `doorstop_config.ini`, and a `BepInEx` folder.
+Open the Steam Time Rifters folder again: **Steam → Library → right-click Time Rifters → Manage → Browse local files**.
 
-Also confirm that `Time Rifters\BepInEx\config\BepInEx.cfg` contains `Type = MonoBehaviour` under `[Preloader.Entrypoint]`. Default BepInEx starts too early in Time Rifters and crashes inside `ThreadingHelper`; the included config uses the compatible Unity 4 entry point.
+The folder must contain `winhttp.dll`, `doorstop_config.ini`, and a `BepInEx` folder directly beside `TimeRifters.exe`. If you see an extra folder layer such as `Time Rifters\game_files\BepInEx`, copy the *contents* of `game_files` up one level instead.
 
-### Time Rifters Client is missing from the launcher
+### Time Rifters Client is not in ArchipelagoLauncher
 
-Use **Install APWorld** in `ArchipelagoLauncher`, select `timerifters.apworld`, then restart the launcher.
+Run **Install APWorld** again, choose `timerifters.apworld`, then close and reopen the launcher.
 
-### The game is waiting for the AP client
+### The game says it is waiting for the AP client
 
-Start Time Rifters Client first, connect it with the exact YAML player name, wait a few seconds, then return to Time Rifters' title screen and press **F8** or **Home**.
+Open Time Rifters Client first, connect as **Time**, wait a few seconds, return to Time Rifters' title screen, and press **F8** or **Home**.
 
-### The client reports wrong slot data or will not connect
+### I clicked Episode 2 or 3 and it will not start
 
-Your DLL, APWorld, and generated seed do not match. Reinstall the files from one release and generate a new seed.
+That episode is key-locked. Play available Campaign Episodes and checks in the other games in your room until Archipelago sends its Episode Key. The top-left **Status** line explains the lock.
+
+### I am in an Experiment Arena and nothing is happening
+
+Experiment Arenas are unsupported. Return to the title screen and start a normal **Campaign Episode** instead.
 
 ### I see 63 checks instead of 79
 
-Set `escape_checks: true` before generating the seed. Existing seeds keep the check count they were generated with.
+That seed was generated with escape checks off. Enable `escape_checks` before generating a new seed. Existing seeds never change their check count.
 
-## Source and development
+## Source, releases, and help
 
-The release ZIP includes its exact source in `source/`. The repository is at [github.com/johnny1754/TimeRifters-Archipelago](https://github.com/johnny1754/TimeRifters-Archipelago).
+Each release ZIP includes the exact complete source in `source/`, the APWorld, the default YAML, a ready-to-copy BepInEx setup, and the DLL used for that release.
 
-The source package intentionally excludes Time Rifters. The release includes the unmodified BepInEx 5.4.23.2 Windows x86 runtime with a separate Time Rifters compatibility config; see `THIRD_PARTY_NOTICES.txt`. `build.sh` rebuilds the DLL when given a local Time Rifters `Managed` folder and BepInEx core DLLs.
+* [GitHub repository](https://github.com/johnny1754/TimeRifters-Archipelago)
+* [Latest release](https://github.com/johnny1754/TimeRifters-Archipelago/releases/latest)
+* [Archipelago setup and hosting guide](https://archipelago.gg/tutorial/Archipelago/setup_en)
+* [Time Rifters Archipelago community / Archipelago Discord #apworld-new](https://discord.com/channels/731205301247803413/1552755726118686841)
 
-## Status
-
-## 1.0.0 release highlights
-
-* Complete ready-to-copy BepInEx setup, with the Unity 4 compatibility configuration already included.
-* Configurable 4–20 arena percentage checks with correctly named tracker and hint locations.
-* Optional episode keys, hidden escape checks, arena shuffle, destruction goals, and DeathLink.
-* Time Echo upgrade credits are replay-safe and reset for each new episode or replay.
-* The title-screen overlay shows arena order and each arena's best destruction percentage.
-
-Report reproducible issues with your Time Rifters version, Archipelago version, selected YAML options, and `BepInEx\LogOutput.log`.
+When reporting a bug, include your Time Rifters version, Archipelago version, the selected YAML options, and `BepInEx\LogOutput.log`.

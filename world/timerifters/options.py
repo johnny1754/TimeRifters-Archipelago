@@ -6,7 +6,7 @@ from Options import Choice, PerGameCommonOptions, Range, Toggle
 class EscapeChecks(Toggle):
     """Include the 15 hidden arena escapes and the Title Screen hidden escape."""
     display_name = "Enable hidden escape checks"
-    default = 1
+    default = 0
 
 
 class EpisodeKeys(Toggle):
@@ -26,7 +26,7 @@ class ArenaPercentageChecks(Range):
     display_name = "Arena percentage checks"
     range_start = 4
     range_end = 20
-    default = 4
+    default = 5
 
 
 class RequiredTimeEchoes(Range):
@@ -44,7 +44,7 @@ class Goal(Choice):
     option_99_percent = 99
     option_100_percent = 100
     option_final_boss_100_percent = 101
-    default = 100
+    default = 95
 
 
 class DeathLink(Toggle):

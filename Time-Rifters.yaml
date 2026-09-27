@@ -4,13 +4,13 @@ game: Time Rifters
 Time Rifters:
   progression_balancing: normal
   accessibility: full
-  escape_checks: true
+  escape_checks: false
   episode_keys: true
   arena_shuffle: false
-  # 4 is the classic 25/50/75/100 layout. Higher values add evenly spaced checks.
-  arena_percentage_checks: 4
+  # 5 is the included default. 4 is the classic 25/50/75/100 layout.
+  arena_percentage_checks: 5
   required_time_echoes: 50
-  goal: 99_percent
+  goal: 95_percent
   death_link: false
   death_link_percent: 50
   death_link_duration: 60

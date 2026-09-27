@@ -72,6 +72,11 @@ class TimeRiftersWorld(World):
                 f"{maximum_echoes} Time Echoes. {escape_note}Choose a lower Echo amount or add more percentage checks "
                 "before generating this seed."
             )
+        if self.options.episode_keys.value:
+            # Episode 1 is the player's opening playground.  Guarantee that
+            # its successor key is distributed in an early reachable sphere
+            # rather than allowing a long, all-Episode-1 opening.
+            self.multiworld.early_items[self.player]["Episode 2 Key"] = 1
         # This is Time Rifters' normal episode layout, expressed as the
         # game's arena IDs.  ARENAS itself is in ID/name order.
         self.arena_order = [0, 5, 6, 3, 11, 7, 2, 4, 13, 12, 14, 9, 8, 10, 1]
