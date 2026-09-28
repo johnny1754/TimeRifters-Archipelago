@@ -219,6 +219,12 @@ Each release ZIP includes the exact complete source in `source/`, the APWorld, t
 
 When reporting a bug, include your Time Rifters version, Archipelago version, the selected YAML options, and `BepInEx\LogOutput.log`.
 
+## Legal and third-party software
+
+Time Rifters Archipelago is an unofficial fan-made integration and is not affiliated with or endorsed by Proton Studio Inc. **Time Rifters** and related names, trademarks, and game assets belong to their respective owners. This project does not distribute Time Rifters itself; a legal copy of the game is required.
+
+The complete setup package includes the unmodified **BepInEx 5.4.23.2 Windows x86** runtime for convenience. Third-party copyright and licensing information is documented in `THIRD_PARTY_NOTICES.txt`, with the applicable BepInEx license text in `LICENSES/BepInEx-MIT.txt`.
+
 ## AI Disclosure
 
 AI (ChatGPT) was used extensively during development of this project, including code generation, debugging, refactoring, and documentation. Development decisions, testing, and validation were performed by the project author.
