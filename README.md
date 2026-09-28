@@ -218,3 +218,7 @@ Each release ZIP includes the exact complete source in `source/`, the APWorld, t
 * [Time Rifters Archipelago community / Archipelago Discord #apworld-new](https://discord.com/channels/731205301247803413/1552755726118686841)
 
 When reporting a bug, include your Time Rifters version, Archipelago version, the selected YAML options, and `BepInEx\LogOutput.log`.
+
+## AI Disclosure
+
+AI (ChatGPT) was used extensively during development of this project, including code generation, debugging, refactoring, and documentation. Development decisions, testing, and validation were performed by the project author.
