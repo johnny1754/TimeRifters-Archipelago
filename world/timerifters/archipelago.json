@@ -2,7 +2,7 @@
   "game": "Time Rifters",
   "authors": ["Time Rifters Archipelago"],
   "minimum_ap_version": "0.6.7",
-  "world_version": "1.0.8",
-  "version": 8,
+  "world_version": "1.0.13",
+  "version": 13,
   "compatible_version": 7
 }

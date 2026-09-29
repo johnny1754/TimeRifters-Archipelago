@@ -4,7 +4,7 @@ import socket
 
 from CommonClient import CommonContext, server_loop, gui_enabled, get_base_parser
 from NetUtils import ClientStatus
-from .bridge import default_directory, session_key, item_state, location_ids, relative_locations, write_snapshot, read_progress, read_goal, write_deathlink, consume_death, outgoing
+from .bridge import default_directory, session_key, item_state, location_ids, relative_locations, write_snapshot, write_notification, read_progress, read_goal, write_deathlink, consume_death, outgoing
 
 logger = logging.getLogger("Client")
 
@@ -22,6 +22,7 @@ class RiftersContext(CommonContext):
         self.room_seed = None
         self.escape_checks = False
         self.episode_keys = False
+        self.upgrade_mode = 0
         self.arena_shuffle = False
         self.arena_order = list(range(15))
         self.required_time_echoes = 50
@@ -45,6 +46,7 @@ class RiftersContext(CommonContext):
             data = args.get("slot_data", {})
             self.escape_checks = bool(data.get("escape_checks"))
             self.episode_keys = bool(data.get("episode_keys"))
+            self.upgrade_mode = data.get("upgrade_mode")
             self.arena_shuffle = bool(data.get("arena_shuffle"))
             self.required_time_echoes = data.get("required_time_echoes")
             self.goal = data.get("goal")
@@ -57,13 +59,14 @@ class RiftersContext(CommonContext):
             if valid_order:
                 self.arena_order = list(raw_order)
             expected_locations = 15 * self.arena_percentage_checks + 3 + (16 if self.escape_checks else 0) if isinstance(self.arena_percentage_checks, int) else -1
-            self.protocol_ok = (data.get("protocol") == 17 and data.get("feature_set") == "death_link_duration"
+            self.protocol_ok = (data.get("protocol") == 19 and data.get("feature_set") == "power_up_items"
                                 and data.get("item_base") == 9473100 and data.get("location_base") == 9473200
                                 and data.get("location_count") == expected_locations and valid_order
                                 and isinstance(self.required_time_echoes, int) and 25 <= self.required_time_echoes <= 84
-                                and self.goal in (95, 99, 100, 101)
+                                and self.goal in (75, 95, 99, 100, 101)
                                 and isinstance(self.death_link_percent, int) and 1 <= self.death_link_percent <= 100
                                 and isinstance(self.death_link_duration, int) and 30 <= self.death_link_duration <= 120
+                                and self.upgrade_mode in (0, 1, 2)
                                 and isinstance(self.arena_percentage_checks, int) and 4 <= self.arena_percentage_checks <= 20)
             self.sent_goal = False
             seed = self.room_seed or getattr(self, "server_seed_name", None) or self.seed_name or "pending-room-info"
@@ -71,7 +74,33 @@ class RiftersContext(CommonContext):
             if self.protocol_ok:
                 logger.info("Time Rifters slot connected. Game bridge is ready.")
             else:
-                logger.error("Wrong slot data. Generate a fresh v1.0.0 seed with this APWorld.")
+                logger.error("Wrong slot data. Generate a fresh Time Rifters seed with the matching APWorld.")
+        elif cmd == "PrintJSON":
+            self.record_found_item(args)
+
+    def record_found_item(self, args):
+        """Forward confirmed results of this slot's checks to the in-game overlay."""
+        if args.get("type") != "ItemSend" or not self.session or self.slot is None:
+            return
+        network_item = args.get("item")
+        source_slot = getattr(network_item, "player", None)
+        recipient_slot = args.get("receiving")
+        item_id = getattr(network_item, "item", None)
+        if source_slot != self.slot or recipient_slot is None or item_id is None:
+            return
+        # Local items are already announced by the game as "Received: <item>".
+        if self.slot_concerns_self(recipient_slot):
+            return
+        recipient_name = self.player_names.get(recipient_slot, "Player " + str(recipient_slot))
+        slot_info = self.slot_info.get(recipient_slot)
+        recipient_game = getattr(slot_info, "game", "another game")
+        try:
+            item_name = self.item_names.lookup_in_slot(int(item_id), recipient_slot)
+        except (KeyError, TypeError, ValueError):
+            item_name = "item " + str(item_id)
+        notice = "Found for " + recipient_name + " [" + recipient_game + "]: " + item_name
+        write_notification(self.folder, self.session, notice)
+        logger.info(notice)
 
     def on_deathlink(self, data):
         self.pending_deathlink = True
@@ -88,12 +117,12 @@ class RiftersContext(CommonContext):
                 if self.server and self.slot is not None and self.protocol_ok:
                     if self.death_link != ("DeathLink" in self.tags):
                         await self.update_death_link(self.death_link)
-                    weapons, echoes = item_state(item.item for item in self.items_received)
+                    weapons, echoes, power_ups = item_state(item.item for item in self.items_received)
                     location_count = 15 * self.arena_percentage_checks + 3 + (16 if self.escape_checks else 0)
                     ids = location_ids(self.arena_percentage_checks, self.escape_checks)
                     server_checks = relative_locations(self.checked_locations, ids)
-                    write_snapshot(self.folder, self.session, weapons, echoes, server_checks, self.escape_checks,
-                                   self.episode_keys, self.arena_shuffle, self.arena_order,
+                    write_snapshot(self.folder, self.session, weapons, echoes, power_ups, server_checks, self.escape_checks,
+                                   self.episode_keys, self.upgrade_mode, self.arena_shuffle, self.arena_order,
                                    self.required_time_echoes, self.goal, self.death_link, self.death_link_percent, self.death_link_duration,
                                    self.arena_percentage_checks, location_count)
                     if self.pending_deathlink:

@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace TimeRiftersArchipelago
 {
-    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "1.0.8")]
+    [BepInPlugin("timerifters.archipelago", "Time Rifters Archipelago", "1.0.13")]
     [BepInProcess("TimeRifters.exe")]
     public sealed class Plugin : BaseUnityPlugin
     {
@@ -26,15 +26,34 @@ namespace TimeRiftersArchipelago
             { "Greeble Box", "Arena Boss", "Long Bridge", "Holodeck", "Tram", "Cave", "Channel",
               "Long Caves", "Egypt Holodeck", "Wide Printer", "Donut Printer", "Water", "Tree",
               "Jungle Holodeck", "Cylinder" };
+        // Shop weapon order and upgrade enum values observed in Time Rifters.
+        // Keep this in the same order as WEAPON_POWER_UPS in the APWorld.
+        private static readonly int[][] WeaponPowerUps =
+            { new int[] { 15, 8, 9, 11, 4 }, new int[] { 13, 14, 9, 11, 4 },
+              new int[] { 12, 16, 10, 4 }, new int[] { 0, 1, 2, 3, 4 },
+              new int[] { 5, 6, 9, 7, 4 }, new int[] { 17, 14, 9, 10, 4 } };
+        private static readonly string[] ShopWeaponNames =
+            { "Scatter Pistol", "Flak Cannon", "Plasma Beam", "Particle Ball", "Rocket Launcher", "Spread Rifle" };
+        private static readonly string[] UpgradeNames =
+            { "Proton", "Electron", "Tether", "Collider", "Acid", "Rocket", "Speed", "To The Moon",
+              "Plasma", "Rapid", "Punch", "Reflect", "Wave", "Flak", "Focus", "Scatter", "Beam", "Spread" };
+        private static readonly string[] UpgradeShortNames =
+            { "Pr", "El", "Te", "Co", "A", "Ro", "Sp", "TM", "Pl", "R", "Pu", "Re", "Wa", "Fl", "Fo", "Sc", "Be", "Sr" };
+        private static readonly string[] GlobalPowerUpNames =
+            { "Projectile", "Damage", "Rapid", "Punch", "Special", "Acid" };
+        // Index into GlobalPowerUpNames for each UpgradeData.Name enum value.
+        private static readonly int[] GlobalCategoryForUpgrade =
+            { 0, 1, 4, 2, 5, 1, 3, 4, 1, 2, 3, 4, 0, 0, 1, 0, 1, 0 };
         private Type gameplay, replay;
         private Type episodeChooserType, arenaChooserType, arenaCardType, uiTextureType, uiSpriteType;
         private Harmony harmony;
         private string folder, session, pendingSession;
         private int items, pendingItems, echoes, pendingEchoes, creditsSpent,
             requiredEchoes, pendingRequiredEchoes, goal, pendingGoal;
+        private long powerUps, pendingPowerUps;
         private int deathLinkPercent, pendingDeathLinkPercent, deathLinkDuration, pendingDeathLinkDuration;
         private HashSet<int> checks = new HashSet<int>(), pendingChecks = new HashSet<int>();
-        private int milestoneCount, pendingMilestoneCount;
+        private int milestoneCount, pendingMilestoneCount, upgradeMode, pendingUpgradeMode;
         private bool isActive, fresh, ready, dirty, escapeChecks, pendingEscapeChecks, episodeKeys, pendingEpisodeKeys,
             arenaShuffle, pendingArenaShuffle, arenaOrderApplied, arenaShuffleWaiting, overlayVisible = true;
         private bool deathLink, pendingDeathLink;
@@ -45,6 +64,7 @@ namespace TimeRiftersArchipelago
         private bool cardVisualsCaptured;
         private float nextPoll;
         private float firingDisabledUntil;
+        private long lastNotificationId;
         private string lastLoadedLevel;
         private int lastPolledArena = -1;
         private bool waitingForNewArenaProgress;
@@ -108,7 +128,7 @@ namespace TimeRiftersArchipelago
                     new HarmonyMethod(typeof(Plugin), "AfterComplete"));
                 PatchWeaponFireMethods(game);
                 ready = true;
-                Logger.LogInfo("[TRAP] READY 1.0.8. Press F8 or HOME at TitleScreen after connecting the AP client.");
+                Logger.LogInfo("[TRAP] READY 1.0.13. Press F8 or HOME at TitleScreen after connecting the AP client.");
                 Logger.LogInfo("[TRAP] Progress folder: " + folder);
             }
             catch (Exception ex)
@@ -154,29 +174,33 @@ namespace TimeRiftersArchipelago
                     string path = Path.Combine(folder, "server.txt");
                     if (File.Exists(path))
                         fresh = Logic.ParseSnapshot(ReadLines(path), Now(), out pendingSession,
-                            out pendingItems, out pendingEchoes, out pendingChecks,
-                            out pendingEscapeChecks, out pendingEpisodeKeys, out pendingArenaShuffle, out pendingArenaOrder,
+                            out pendingItems, out pendingEchoes, out pendingPowerUps, out pendingChecks,
+                            out pendingEscapeChecks, out pendingEpisodeKeys, out pendingUpgradeMode, out pendingArenaShuffle, out pendingArenaOrder,
                             out pendingRequiredEchoes, out pendingGoal, out pendingDeathLink, out pendingDeathLinkPercent, out pendingDeathLinkDuration, out pendingMilestoneCount);
                     if (isActive && fresh && session == pendingSession)
                     {
-                        if ((items | pendingItems) != items)
+                        int newItems = pendingItems & ~items;
+                        int newEchoes = pendingEchoes - echoes;
+                        long newPowerUps = pendingPowerUps & ~powerUps;
+                        upgradeMode = pendingUpgradeMode;
+                        if (newItems != 0) items |= pendingItems;
+                        if (newEchoes > 0) echoes = pendingEchoes;
+                        if (newPowerUps != 0) powerUps |= pendingPowerUps;
+                        if (newItems != 0 || newEchoes > 0 || newPowerUps != 0)
                         {
-                            items |= pendingItems;
-                            message = "Progression received! Episode 2=" + ((items & 32) != 0)
-                                + ", Episode 3=" + ((items & 64) != 0);
-                            Logger.LogInfo("[TRAP] " + message);
-                        }
-                        if (pendingEchoes > echoes)
-                        {
-                            echoes = pendingEchoes;
-                            message = "Time Echo received! Upgrade credits available: "
-                                + Math.Max(0, echoes - creditsSpent) + ". Spend them in the weapon upgrade shop.";
+                            List<string> received = ReceivedItemNames(newItems);
+                            if (newEchoes > 0)
+                                received.Add(newEchoes + " Time Echo" + (newEchoes == 1 ? "" : "es")
+                                    + " (" + Math.Max(0, echoes - creditsSpent) + " credits available)");
+                            received.AddRange(ReceivedPowerUpNames(newPowerUps));
+                            message = "Received: " + string.Join(", ", received.ToArray());
                             Logger.LogInfo("[TRAP] " + message);
                         }
                         EvaluateGoal();
                         int before = checks.Count; checks.UnionWith(pendingChecks);
                         if (checks.Count != before) dirty = true;
                     }
+                    if (isActive && CorrectSession()) ApplyItemNotification();
                     if (dirty) SaveProgress();
                 }
                 catch (Exception ex)
@@ -235,12 +259,15 @@ namespace TimeRiftersArchipelago
                 try
                 {
                     session = pendingSession;
+                    lastNotificationId = 0;
                     items = pendingItems;
                     echoes = pendingEchoes;
+                    powerUps = pendingPowerUps;
                     checks = pendingChecks;
                     milestoneCount = pendingMilestoneCount;
                     escapeChecks = pendingEscapeChecks;
                     episodeKeys = pendingEpisodeKeys;
+                    upgradeMode = pendingUpgradeMode;
                     arenaShuffle = pendingArenaShuffle;
                     arenaOrder = pendingArenaOrder == null ? null : (int[])pendingArenaOrder.Clone();
                     requiredEchoes = pendingRequiredEchoes;
@@ -290,6 +317,21 @@ namespace TimeRiftersArchipelago
             if (File.Exists(path)) File.Replace(temp, path, null);
             else File.Move(temp, path);
             dirty = false;
+        }
+
+        private void ApplyItemNotification()
+        {
+            string path = Path.Combine(folder, "notification.txt");
+            if (!File.Exists(path)) return;
+            string[] lines = ReadLines(path);
+            long notificationId;
+            if (lines.Length != 4 || lines[0] != "1" || lines[1] != session
+                || !Int64.TryParse(lines[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out notificationId)
+                || notificationId <= lastNotificationId || lines[3].Length == 0 || lines[3].Length > 240)
+                return;
+            lastNotificationId = notificationId;
+            message = lines[3];
+            Logger.LogInfo("[TRAP] " + message);
         }
 
         private string ProgressChecksText()
@@ -630,13 +672,18 @@ namespace TimeRiftersArchipelago
         private void RecordMilestones(int arena, float fraction)
         {
             int added = 0;
+            List<string> earned = new List<string>();
             for (int milestone = 0; milestone < milestoneCount; milestone++)
                 if (Logic.MilestoneReached(true, false, arena, fraction, milestoneCount, milestone)
-                    && Logic.AddLocation(checks, Logic.ArenaCheckIndex(arena, milestone, milestoneCount), LocationTotal)) added++;
+                    && Logic.AddLocation(checks, Logic.ArenaCheckIndex(arena, milestone, milestoneCount), LocationTotal))
+                {
+                    added++;
+                    earned.Add(Logic.MilestonePercent(milestoneCount, milestone) + "%");
+                }
             if (added == 0) return;
             dirty = true;
-            message = "Arena milestone earned: " + (int)(fraction * 100f) + "% | Total: "
-                + checks.Count + "/" + LocationTotal;
+            message = "Check sent: " + ArenaNames[arena] + " - " + string.Join(", ", earned.ToArray())
+                + " Clear";
             Logger.LogInfo("[TRAP] Arena " + arena + " progress " + fraction.ToString(CultureInfo.InvariantCulture)
                 + " earned " + added + " milestone(s).");
             SaveProgress();
@@ -646,8 +693,7 @@ namespace TimeRiftersArchipelago
         {
             if (!Logic.AddLocation(checks, Logic.EpisodeCheckIndex(episode, milestoneCount), LocationTotal)) return;
             dirty = true;
-            message = "Episode " + (episode + 1) + " complete! Total: "
-                + checks.Count + "/" + LocationTotal;
+            message = "Check sent: Episode " + (episode + 1) + " Complete";
             Logger.LogInfo("[TRAP] Episode " + episode + " completion check earned.");
             SaveProgress();
         }
@@ -670,8 +716,7 @@ namespace TimeRiftersArchipelago
         {
             if (!Logic.AddLocation(checks, Logic.EscapeCheckIndex(arena, milestoneCount), LocationTotal)) return;
             dirty = true;
-            message = "Hidden escape found! Total: "
-                + checks.Count + "/" + LocationTotal;
+            message = "Check sent: " + ArenaNames[arena] + " - Hidden Escape";
             Logger.LogInfo("[TRAP] Arena " + arena + " hidden escape check earned.");
             SaveProgress();
         }
@@ -680,10 +725,84 @@ namespace TimeRiftersArchipelago
         {
             if (!Logic.AddLocation(checks, Logic.TitleCheckIndex(milestoneCount), LocationTotal)) return;
             dirty = true;
-            message = "Title screen escape found! Total: "
-                + checks.Count + "/" + LocationTotal;
+            message = "Check sent: Title Screen - Hidden Escape";
             Logger.LogInfo("[TRAP] Title screen escape check earned.");
             SaveProgress();
+        }
+
+        private bool TryUpgradeWeapon(object upgrade, out int weapon)
+        {
+            weapon = -1;
+            try
+            {
+                Type shopType = upgrade.GetType().Assembly.GetType("Shop", true);
+                Array players = Field(shopType, "playerShopData").GetValue(null) as Array;
+                if (players == null) return false;
+                for (int player = 0; player < players.Length; player++)
+                {
+                    object data = players.GetValue(player);
+                    if (data == null) continue;
+                    Array settings = Field(data.GetType(), "weaponSettings").GetValue(data) as Array;
+                    if (settings == null) continue;
+                    for (int candidateWeapon = 0; candidateWeapon < settings.Length && candidateWeapon < 6; candidateWeapon++)
+                    {
+                        object setting = settings.GetValue(candidateWeapon);
+                        if (setting == null) continue;
+                        object weaponData = Field(setting.GetType(), "weaponData").GetValue(setting);
+                        Array upgrades = weaponData == null ? null : Field(weaponData.GetType(), "upgrades").GetValue(weaponData) as Array;
+                        if (upgrades == null) continue;
+                        for (int candidateSlot = 0; candidateSlot < upgrades.Length; candidateSlot++)
+                            if (System.Object.ReferenceEquals(upgrade, upgrades.GetValue(candidateSlot)))
+                            {
+                                weapon = candidateWeapon;
+                                return weapon >= 0 && weapon < WeaponPowerUps.Length;
+                            }
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.LogError("[TRAP] Could not identify shop upgrade: " + ex); }
+            return false;
+        }
+
+        private static bool ValidUpgradeCategory(int category)
+        {
+            return category >= 0 && category < UpgradeNames.Length;
+        }
+
+        private static int PerWeaponPowerUpIndex(int weapon, int category)
+        {
+            if (weapon < 0 || weapon >= WeaponPowerUps.Length || !ValidUpgradeCategory(category)) return -1;
+            int index = GlobalPowerUpNames.Length;
+            for (int candidate = 0; candidate < WeaponPowerUps.Length; candidate++)
+            {
+                int[] categories = WeaponPowerUps[candidate];
+                for (int slot = 0; slot < categories.Length; slot++)
+                {
+                    if (candidate == weapon && categories[slot] == category) return index;
+                    index++;
+                }
+            }
+            return -1;
+        }
+
+        private bool HasPowerUp(int weapon, int category)
+        {
+            if (upgradeMode == 0) return true;
+            if (!ValidUpgradeCategory(category)) return false;
+            int index;
+            if (upgradeMode == 1) index = GlobalCategoryForUpgrade[category];
+            else if (upgradeMode == 2) index = PerWeaponPowerUpIndex(weapon, category);
+            else return false;
+            return index >= 0 && (powerUps & (1L << index)) != 0;
+        }
+
+        private string RequiredPowerUpName(int weapon, int category)
+        {
+            if (!ValidUpgradeCategory(category)) return "this power-up";
+            if (upgradeMode == 1) return GlobalPowerUpNames[GlobalCategoryForUpgrade[category]] + " Upgrade";
+            if (upgradeMode == 2 && weapon >= 0 && weapon < ShopWeaponNames.Length)
+                return ShopWeaponNames[weapon] + " - " + UpgradeNames[category] + " Upgrade";
+            return UpgradeNames[category] + " Upgrade";
         }
 
         public static bool BeforeWeaponClick(object __instance)
@@ -716,15 +835,31 @@ namespace TimeRiftersArchipelago
             if (p == null || !p.isActive) return true;
             try
             {
+                object upgrade = Field(__instance.GetType(), "upgradeData").GetValue(__instance);
+                if (upgrade == null) return false;
+                Type type = upgrade.GetType();
+                int weapon = -1;
+                int category = Convert.ToInt32(Field(type, "name").GetValue(upgrade), CultureInfo.InvariantCulture);
+                if (p.upgradeMode != 0)
+                {
+                    if (!p.TryUpgradeWeapon(upgrade, out weapon) || !ValidUpgradeCategory(category))
+                    {
+                        p.message = "Could not identify this shop power-up. See LogOutput.log.";
+                        return false;
+                    }
+                    if (!p.HasPowerUp(weapon, category))
+                    {
+                        p.message = p.RequiredPowerUpName(weapon, category) + " is locked. Receive it from Archipelago first.";
+                        p.Logger.LogInfo("[TRAP] Blocked locked power-up: " + p.RequiredPowerUpName(weapon, category));
+                        return false;
+                    }
+                }
                 int available = p.echoes - p.creditsSpent;
                 if (available <= 0)
                 {
                     p.message = "No Time Echo upgrade credits available. Receive one from Archipelago first.";
                     return false;
                 }
-                object upgrade = Field(__instance.GetType(), "upgradeData").GetValue(__instance);
-                if (upgrade == null) return false;
-                Type type = upgrade.GetType();
                 int level = Convert.ToInt32(Field(type, "upgradeLevel").GetValue(upgrade), CultureInfo.InvariantCulture);
                 int maximum = Field(type, "upgradeType").GetValue(upgrade).ToString() == "Multiple" ? 5 : 1;
                 if (level >= maximum)
@@ -944,7 +1079,8 @@ namespace TimeRiftersArchipelago
                 overlayStyle.padding = new RectOffset(16, 16, 12, 12);
             }
             int overlayWidth = Math.Min(980, Screen.width - 40);
-            string overlayText = "TIME RIFTERS AP 1.0.8  |  " + status + "\n"
+            string upgradeStatus = PowerUpOverlayText();
+            string overlayText = "TIME RIFTERS AP 1.0.13  |  " + status + "\n"
                 + "F7 hides panel  |  F8/Home at title: enable or refresh AP.\n"
                 + WeaponStatus("Flak Cannon", (items & 1) != 0)
                 + " | " + WeaponStatus("Plasma Beam", (items & 2) != 0)
@@ -957,9 +1093,69 @@ namespace TimeRiftersArchipelago
                 + goalProgress + "\n"
                 + deathLinkStatus + "\n"
                 + "Time Echo credits: " + Math.Max(0, echoes - creditsSpent) + shuffleDetails + "\n"
+                + upgradeStatus
                 + "<color=#FFCF70>Status:</color> " + message;
             int overlayHeight = Mathf.CeilToInt(overlayStyle.CalcHeight(new GUIContent(overlayText), overlayWidth));
             GUI.Box(new Rect(20, 20, overlayWidth, overlayHeight), overlayText, overlayStyle);
+        }
+
+        private string PowerUpOverlayText()
+        {
+            if (upgradeMode == 0) return "";
+            if (upgradeMode == 1)
+            {
+                string text = "Power-up categories: ";
+                for (int index = 0; index < GlobalPowerUpNames.Length; index++)
+                {
+                    if (index > 0) text += " | ";
+                    text += PowerUpLabel(GlobalPowerUpNames[index], (powerUps & (1L << index)) != 0);
+                }
+                return text + "\n";
+            }
+            return "Power-up items: " + PowerUpLine(0) + " | " + PowerUpLine(3) + "\n"
+                + "                " + PowerUpLine(1) + " | " + PowerUpLine(4) + "\n"
+                + "                " + PowerUpLine(2) + " | " + PowerUpLine(5) + "\n";
+        }
+
+        private string PowerUpLine(int weapon)
+        {
+            if (weapon < 0 || weapon >= WeaponPowerUps.Length) return "";
+            string text = ShopWeaponNames[weapon] + " ";
+            int[] categories = WeaponPowerUps[weapon];
+            for (int slot = 0; slot < categories.Length; slot++)
+            {
+                if (slot > 0) text += " ";
+                int category = categories[slot];
+                text += PowerUpLabel(UpgradeShortNames[category], HasPowerUp(weapon, category));
+            }
+            return text;
+        }
+
+        private static string PowerUpLabel(string name, bool unlocked)
+        {
+            return "<color=" + (unlocked ? "#61E58B" : "#FF6B6B") + ">" + name + "</color>";
+        }
+
+        private List<string> ReceivedPowerUpNames(long changed)
+        {
+            List<string> names = new List<string>();
+            if (upgradeMode == 1)
+            {
+                for (int index = 0; index < GlobalPowerUpNames.Length; index++)
+                    if ((changed & (1L << index)) != 0) names.Add(GlobalPowerUpNames[index] + " Upgrade");
+            }
+            else if (upgradeMode == 2)
+            {
+                for (int weapon = 0; weapon < WeaponPowerUps.Length; weapon++)
+                    for (int slot = 0; slot < WeaponPowerUps[weapon].Length; slot++)
+                    {
+                        int category = WeaponPowerUps[weapon][slot];
+                        int index = PerWeaponPowerUpIndex(weapon, category);
+                        if ((changed & (1L << index)) != 0)
+                            names.Add(ShopWeaponNames[weapon] + " - " + UpgradeNames[category] + " Upgrade");
+                    }
+            }
+            return names;
         }
 
         private string ArenaLine(int firstSlot)
@@ -970,10 +1166,25 @@ namespace TimeRiftersArchipelago
             {
                 if (slot > 0) line += "  |  ";
                 int arena = arenaOrder[firstSlot + slot];
-                line += (slot + 1) + ". " + ArenaNames[arena] + " "
+                bool escaped = escapeChecks && checks.Contains(Logic.EscapeCheckIndex(arena, milestoneCount));
+                string arenaName = escaped ? "<color=#61E58B>" + ArenaNames[arena] + " E</color>" : ArenaNames[arena];
+                line += (slot + 1) + ". " + arenaName + " "
                     + (arenaBest[arena] / 100f).ToString("0.0", CultureInfo.InvariantCulture) + "%";
             }
             return line;
+        }
+
+        private static List<string> ReceivedItemNames(int itemBits)
+        {
+            List<string> names = new List<string>();
+            if ((itemBits & 1) != 0) names.Add("Flak Cannon");
+            if ((itemBits & 2) != 0) names.Add("Plasma Beam");
+            if ((itemBits & 4) != 0) names.Add("Particle Ball");
+            if ((itemBits & 8) != 0) names.Add("Rocket Launcher");
+            if ((itemBits & 16) != 0) names.Add("Spread Rifle");
+            if ((itemBits & 32) != 0) names.Add("Episode 2 Key");
+            if ((itemBits & 64) != 0) names.Add("Episode 3 Key");
+            return names;
         }
 
         private string EpisodeBestPercent(int episode)

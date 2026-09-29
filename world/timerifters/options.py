@@ -37,9 +37,19 @@ class RequiredTimeEchoes(Range):
     default = 50
 
 
+class UpgradeMode(Choice):
+    """Off keeps every shop power-up normal. Categories uses six shared items; per weapon uses one item for each real weapon power-up."""
+    display_name = "Shop power-up item mode"
+    option_off = 0
+    option_power_up_categories = 1
+    option_per_weapon_power_ups = 2
+    default = 0
+
+
 class Goal(Choice):
     """Completion target, based on best destruction percent rather than checks."""
     display_name = "Goal"
+    option_75_percent = 75
     option_95_percent = 95
     option_99_percent = 99
     option_100_percent = 100
@@ -76,6 +86,7 @@ class TimeRiftersOptions(PerGameCommonOptions):
     arena_shuffle: ArenaShuffle
     arena_percentage_checks: ArenaPercentageChecks
     required_time_echoes: RequiredTimeEchoes
+    upgrade_mode: UpgradeMode
     goal: Goal
     death_link: DeathLink
     death_link_percent: DeathLinkPercent

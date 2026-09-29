@@ -10,6 +10,11 @@ Time Rifters:
   # 5 is the included default. 4 is the classic 25/50/75/100 layout.
   arena_percentage_checks: 5
   required_time_echoes: 50
+  # off, power_up_categories, or per_weapon_power_ups
+  # Categories adds six shared unlock items. Per weapon adds one item for every real shop power-up.
+  # Every unlocked power-up still costs Time Echo credits to level up in the shop.
+  upgrade_mode: off
+  # 75_percent, 95_percent, 99_percent, 100_percent, or final_boss_100_percent
   goal: 95_percent
   death_link: false
   death_link_percent: 50

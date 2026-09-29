@@ -1,6 +1,6 @@
 # Time Rifters Archipelago
 
-Play the Windows Steam version of **Time Rifters** as an Archipelago world. Weapons, Time Echo credits, episode keys, arena destruction checks, hidden escapes, goals, and optional DeathLink are randomized into your Archipelago room.
+Play the Windows Steam version of **Time Rifters** as an Archipelago world. Weapons, Time Echo credits, episode keys, arena destruction checks, hidden escapes, goals, optional shop power-up items, and optional DeathLink are randomized into your Archipelago room.
 
 ## Read this first
 
@@ -84,7 +84,7 @@ Do **not** launch `TimeRifters_DirectToRift.exe`. Start the game through Steam a
 4. Copy the release's **`Time-Rifters.yaml`** into that `Players` folder.
 5. Leave it alone. Do not open it, rename it, or change its settings for your first game.
 
-The included YAML already uses the recommended standard settings: 95% average goal, 50 Time Echoes, episode keys on, hidden escape checks off, five percentage checks per arena, arena shuffle off, and DeathLink off. Its player name is **Time**; use `Time` when the client asks for your slot name.
+The included YAML already uses the recommended standard settings: 95% average goal, 50 Time Echoes, episode keys on, hidden escape checks off, five percentage checks per arena, arena shuffle off, shop power-up items off, and DeathLink off. Its player name is **Time**; use `Time` when the client asks for your slot name.
 
 > ArchipelagoLauncher does the generation; the YAML is simply the settings card it reads. The Launcher can create template YAMLs, but it does not provide a separate settings screen for a custom APWorld. Using the included file unchanged is the intended beginner setup.
 
@@ -149,6 +149,7 @@ Time Rifters:
   arena_shuffle: false
   arena_percentage_checks: 5
   required_time_echoes: 50
+  upgrade_mode: off
   goal: 95_percent
   death_link: false
   death_link_percent: 50
@@ -162,10 +163,37 @@ Time Rifters:
 | `arena_shuffle` | `false` | Moves 14 arenas between the three Campaign Episode groups. Arena Boss remains Episode 3 Arena 5. |
 | `arena_percentage_checks` | `5` | Checks per arena. Five means 20%, 40%, 60%, 80%, and 100%. Higher values (up to 20) add checks and room for Time Echoes. |
 | `required_time_echoes` | `50` | Time Echoes required for the goal. Range: 25–84. Higher values need enough checks. |
-| `goal` | `95_percent` | `95_percent`, `99_percent`, and `100_percent` use the average best destruction across all 15 arenas. `final_boss_100_percent` requires Arena Boss at 100%. |
+| `upgrade_mode` | `off` | `off` keeps normal shop power-ups. `power_up_categories` adds six shared Archipelago unlock items. `per_weapon_power_ups` adds a separate received item for every real weapon power-up. Once found, a power-up still costs Time Echo credits for each shop level. Per-weapon mode has 29 extra items, so increase percentage checks or enable escapes if the generator says there is not enough room for your selected Echo count. |
+| `goal` | `95_percent` | `75_percent`, `95_percent`, `99_percent`, and `100_percent` use the average best destruction across all 15 arenas. `final_boss_100_percent` requires Arena Boss at 100%. |
 | `death_link` | `false` | Lets this game send and receive DeathLink. |
 | `death_link_percent` | `50` | Finishing an arena below this percentage sends DeathLink when DeathLink is enabled. |
 | `death_link_duration` | `60` | Seconds firing is disabled after receiving DeathLink. Range: 30–120. |
+
+### Shop power-up item modes
+
+Both modes make a power-up unavailable until its Archipelago item arrives. This is only an unlock gate: after receiving it, spend Time Echo credits in the shop normally, including on further levels of the same power-up. Acid items are required progression items; the other power-up items are useful items.
+
+`power_up_categories` adds these six shared items. Each one unlocks the listed shop power-ups wherever they appear.
+
+| Received item | Unlocks |
+| --- | --- |
+| Projectile Upgrade | Scatter, Flak, Wave, Proton, Spread |
+| Damage Upgrade | Plasma, Focus, Beam, Electron, Rocket |
+| Rapid Upgrade | Rapid, Collider |
+| Punch Upgrade | Punch, Speed |
+| Special Upgrade | Reflect, Tether, To The Moon |
+| Acid Upgrade | Acid |
+
+`per_weapon_power_ups` makes the following separate item sets, using the names shown in the shop:
+
+| Weapon | Its received power-up items |
+| --- | --- |
+| Scatter Pistol | Scatter, Plasma, Rapid, Reflect, Acid |
+| Flak Cannon | Flak, Focus, Rapid, Reflect, Acid |
+| Plasma Beam | Wave, Beam, Punch, Acid |
+| Particle Ball | Proton, Electron, Tether, Collider, Acid |
+| Rocket Launcher | Rocket, Speed, Rapid, To The Moon, Acid |
+| Spread Rifle | Spread, Focus, Rapid, Punch, Acid |
 
 ## Updating an existing install
 
@@ -219,6 +247,12 @@ Each release ZIP includes the exact complete source in `source/`, the APWorld, t
 
 When reporting a bug, include your Time Rifters version, Archipelago version, the selected YAML options, and `BepInEx\LogOutput.log`.
 
-## AI Disclosure
+## Project status and third-party notices
+
+Time Rifters Archipelago is an unofficial fan-made integration. It is not affiliated with or endorsed by Proton Studio Inc. Time Rifters and related trademarks and assets are the property of their respective owners.
+
+This project does not include Time Rifters itself. The release ZIP bundles the unmodified BepInEx 5.4.23.2 Windows x86 runtime under the LGPL-2.1; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for its notice and source link.
+
+## AI disclosure
 
 AI (ChatGPT) was used extensively during development of this project, including code generation, debugging, refactoring, and documentation. Development decisions, testing, and validation were performed by the project author.

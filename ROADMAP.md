@@ -10,12 +10,12 @@ Short working list for features to revisit as the mod develops.
 - [x] Keep check totals correct for the selected density and optional escape checks
 - [ ] Revisit the 20-check maximum and excess filler Time Echoes after adding more item types or upgrade categories. Consider a lower cap, an extra-Echo cap, or additional non-Echo filler items then.
 - [ ] Optional Episode Complete checks
-- [ ] Optional hidden escape checks (implemented)
+- [x] Optional hidden escape checks
 
 ## Progression items
 
 - [x] Episode 2 Key and Episode 3 Key; Episode 1 remains available from the start
-- [ ] Optional Acid Upgrade Archipelago item; otherwise Acid remains a normal shop upgrade
+- [x] Upgrade-category item modes: Acid is an early-capable progression item; other upgrade categories are useful by default. Revisit Acid's classification after more completed runs, in case it proves too strong or too early.
 - [ ] Sprint Jump as an Archipelago pool item
 - [ ] Double Jump as an Archipelago pool item
 - [ ] Confirm the game state/hooks for Sprint Jump and Double Jump before making them progression
@@ -26,7 +26,8 @@ Short working list for features to revisit as the mod develops.
 ## Gameplay and quality of life
 
 - [x] Goal-complete notification in game and client log
-- [ ] Clear check-sent notification with location name
+- [x] Clear check-sent notification with location name
+- [x] Show escaped arenas in green with a compact `E` marker on the title overlay
 - [x] Optional DeathLink: configurable low-arena-completion sends; received link locks firing briefly
 - [x] Optional arena-order shuffle; needs careful fresh-seed testing
 - [ ] Better hint labels for the final episode and final arena

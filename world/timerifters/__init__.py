@@ -12,6 +12,26 @@ EPISODES = ("Episode 1", "Episode 2", "Episode 3")
 ITEMS = {"Flak Cannon": ITEM_BASE, "Plasma Beam": ITEM_BASE + 1, "Particle Ball": ITEM_BASE + 2,
          "Rocket Launcher": ITEM_BASE + 3, "Spread Rifle": ITEM_BASE + 4, "Time Echo": ITEM_BASE + 5,
          "Episode 2 Key": ITEM_BASE + 6, "Episode 3 Key": ITEM_BASE + 7}
+WEAPON_POWER_UPS = (
+    ("Scatter Pistol", ("Scatter", "Plasma", "Rapid", "Reflect", "Acid")),
+    ("Flak Cannon", ("Flak", "Focus", "Rapid", "Reflect", "Acid")),
+    ("Plasma Beam", ("Wave", "Beam", "Punch", "Acid")),
+    ("Particle Ball", ("Proton", "Electron", "Tether", "Collider", "Acid")),
+    ("Rocket Launcher", ("Rocket", "Speed", "Rapid", "To The Moon", "Acid")),
+    ("Spread Rifle", ("Spread", "Focus", "Rapid", "Punch", "Acid")),
+)
+GLOBAL_POWER_UPS = ("Projectile", "Damage", "Rapid", "Punch", "Special", "Acid")
+GLOBAL_POWER_UP_MEMBERS = {
+    "Projectile": ("Scatter", "Flak", "Wave", "Proton", "Spread"),
+    "Damage": ("Plasma", "Focus", "Beam", "Electron", "Rocket"),
+    "Rapid": ("Rapid", "Collider"),
+    "Punch": ("Punch", "Speed"),
+    "Special": ("Reflect", "Tether", "To The Moon"),
+    "Acid": ("Acid",),
+}
+for index, power_up in enumerate(GLOBAL_POWER_UPS): ITEMS[power_up + " Upgrade"] = ITEM_BASE + 8 + index
+PER_WEAPON_POWER_UPS = tuple((weapon, power_up) for weapon, power_ups in WEAPON_POWER_UPS for power_up in power_ups)
+for index, (weapon, power_up) in enumerate(PER_WEAPON_POWER_UPS): ITEMS[weapon + " - " + power_up + " Upgrade"] = ITEM_BASE + 8 + len(GLOBAL_POWER_UPS) + index
 def milestones_for(count):
     return tuple((100 * (index + 1) + count - 1) // count for index in range(count))
 
@@ -61,8 +81,11 @@ class TimeRiftersWorld(World):
         self.milestone_count = self.options.arena_percentage_checks.value
         self.milestones, self.core_locations, self.escape_locations = location_tables(self.milestone_count)
         self.location_name_to_id = {**self.core_locations, **self.escape_locations}
+        self.upgrade_mode = self.options.upgrade_mode.value
+        self.power_up_item_count = (len(GLOBAL_POWER_UPS) if self.upgrade_mode == 1
+                                    else len(PER_WEAPON_POWER_UPS) if self.upgrade_mode == 2 else 0)
         location_count = len(self.core_locations) + (len(self.escape_locations) if self.options.escape_checks.value else 0)
-        non_echo_items = 7 if self.options.episode_keys.value else 5
+        non_echo_items = (7 if self.options.episode_keys.value else 5) + self.power_up_item_count
         maximum_echoes = location_count - non_echo_items
         requested_echoes = self.options.required_time_echoes.value
         if requested_echoes > maximum_echoes:
@@ -77,6 +100,12 @@ class TimeRiftersWorld(World):
             # its successor key is distributed in an early reachable sphere
             # rather than allowing a long, all-Episode-1 opening.
             self.multiworld.early_items[self.player]["Episode 2 Key"] = 1
+        if self.upgrade_mode:
+            # A received power-up is harmless before its weapon arrives, but
+            # forcing all weapon unlocks into the early reachable pool keeps
+            # the item modes from creating a long unusable-upgrade opening.
+            for weapon in tuple(ITEMS)[:5]:
+                self.multiworld.early_items[self.player][weapon] = 1
         # This is Time Rifters' normal episode layout, expressed as the
         # game's arena IDs.  ARENAS itself is in ID/name order.
         self.arena_order = [0, 5, 6, 3, 11, 7, 2, 4, 13, 12, 14, 9, 8, 10, 1]
@@ -124,6 +153,14 @@ class TimeRiftersWorld(World):
         required = ("Flak Cannon", "Plasma Beam", "Particle Ball", "Rocket Launcher", "Spread Rifle")
         if self.options.episode_keys.value:
             required += ("Episode 2 Key", "Episode 3 Key")
+        # Acid is a real progression gate in the optional power-up modes.
+        # Making it part of the completion rule lets Archipelago place it in
+        # progression spheres instead of treating it as an optional extra.
+        if self.upgrade_mode == 1:
+            required += ("Acid Upgrade",)
+        elif self.upgrade_mode == 2:
+            required += tuple(weapon + " - Acid Upgrade" for weapon, power_ups in WEAPON_POWER_UPS
+                              if "Acid" in power_ups)
         required_echoes = self.options.required_time_echoes.value
         victory.access_rule = lambda state: state.has_all(required, self.player) and state.has("Time Echo", self.player, required_echoes)
         victory.place_locked_item(RiftersItem("Victory", ItemClassification.progression, None, self.player))
@@ -139,9 +176,12 @@ class TimeRiftersWorld(World):
         self.multiworld.itempool += [self.create_item(name) for name in tuple(ITEMS)[:5]]
         if self.options.episode_keys.value:
             self.multiworld.itempool += [self.create_item("Episode 2 Key"), self.create_item("Episode 3 Key")]
+        if self.upgrade_mode == 1:
+            self.multiworld.itempool += [self.create_item(name + " Upgrade", ItemClassification.progression if name == "Acid" else ItemClassification.useful) for name in GLOBAL_POWER_UPS]
+        elif self.upgrade_mode == 2:
+            self.multiworld.itempool += [self.create_item(weapon + " - " + name + " Upgrade", ItemClassification.progression if name == "Acid" else ItemClassification.useful) for weapon, name in PER_WEAPON_POWER_UPS]
         location_count = len(self.core_locations) + (len(self.escape_locations) if self.options.escape_checks.value else 0)
-        progression_count = 7 if self.options.episode_keys.value else 5
-        echo_count = location_count - progression_count
+        echo_count = location_count - ((7 if self.options.episode_keys.value else 5) + self.power_up_item_count)
         required_echoes = self.options.required_time_echoes.value
         self.multiworld.itempool += [self.create_item("Time Echo", ItemClassification.progression) for _ in range(required_echoes)]
         self.multiworld.itempool += [self.create_item("Time Echo") for _ in range(echo_count - required_echoes)]
@@ -151,9 +191,10 @@ class TimeRiftersWorld(World):
 
     def fill_slot_data(self):
         enabled = bool(self.options.escape_checks.value)
-        return {"protocol": 17, "feature_set": "death_link_duration", "item_base": ITEM_BASE,
+        return {"protocol": 19, "feature_set": "power_up_items", "item_base": ITEM_BASE,
                 "location_base": LOCATION_BASE, "location_count": len(self.core_locations) + (len(self.escape_locations) if enabled else 0),
                 "escape_checks": enabled, "episode_keys": bool(self.options.episode_keys.value),
+                "upgrade_mode": self.upgrade_mode,
                 "arena_shuffle": bool(self.options.arena_shuffle.value), "arena_order": self.arena_order,
                 "required_time_echoes": self.options.required_time_echoes.value,
                 "goal": self.options.goal.value,
