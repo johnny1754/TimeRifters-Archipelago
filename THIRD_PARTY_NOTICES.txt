@@ -1,9 +1,30 @@
-Time Rifters Archipelago bundles the unmodified BepInEx 5.4.23.2 Windows x86 runtime
-with a Time Rifters-specific configuration file and this mod's plugin DLL.
+Time Rifters Archipelago third-party notices
 
-BepInEx is licensed under the GNU Lesser General Public License, version 2.1.
-Its source code and license are available from the official project:
+BepInEx 5.4.23.2 Windows x86
+----------------------------
+The complete setup package bundles the unmodified BepInEx 5.4.23.2 Windows x86
+runtime with a Time Rifters-specific configuration file and this mod's plugin DLL.
+
+The BepInEx v5.4.23.2 tag is distributed under the MIT License. A copy of that
+license is included in LICENSES/BepInEx-MIT.txt.
+
+Official source for the bundled version:
 https://github.com/BepInEx/BepInEx/tree/v5.4.23.2
 
-The BepInEx runtime files are not modified. The included BepInEx.cfg is a separate
-configuration file that selects the compatible Unity 4.5.5 startup entry point.
+The BepInEx runtime files are not modified. The included BepInEx.cfg is a
+separate Time Rifters compatibility configuration that selects the compatible
+Unity 4.5.5 startup entry point.
+
+BepInEx itself includes third-party open-source components. Their upstream
+copyright and license notices remain applicable to those components. The
+complete setup package should preserve any license/notices shipped with the
+upstream BepInEx distribution.
+
+Time Rifters
+------------
+Time Rifters Archipelago does not distribute Time Rifters itself. Users must
+provide their own legal copy of the game.
+
+Time Rifters Archipelago is an unofficial fan-made integration and is not
+affiliated with or endorsed by Proton Studio Inc. Time Rifters and related
+names, trademarks, and game assets belong to their respective owners.
